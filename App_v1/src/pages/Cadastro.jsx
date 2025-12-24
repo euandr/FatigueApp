@@ -128,7 +128,7 @@ function Cadastro() {
               onClick={() => navigate("/")}
               className="text-sky-600 cursor-pointer font-bold hover:text-sky-700 hover:underline transition"
             >
-              Faça login agora
+              Faça login 
             </button>
           </p>
         </div>

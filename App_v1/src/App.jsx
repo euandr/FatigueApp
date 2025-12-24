@@ -1,11 +1,12 @@
-import Login from "./Components/Login.jsx";
+import Login from "./pages/Login.jsx";
 import "./index.css";
 
 
+
 function App() {
-  return (
-    <Login />
-  );
+
+  
+  return <Login />;
 }
 
 export default App;

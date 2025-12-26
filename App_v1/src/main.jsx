@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
 import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import Monitoramento from "./pages/Monitoramento.jsx";
 
 const router = createBrowserRouter([
   {
@@ -13,6 +14,10 @@ const router = createBrowserRouter([
   {
     path: "/cadastro",
     element: <Cadastro />,
+  },
+  {
+    path: "/monitoramento",
+    element: <Monitoramento />,
   },
 ]);
 

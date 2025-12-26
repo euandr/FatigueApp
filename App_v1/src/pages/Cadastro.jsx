@@ -10,8 +10,6 @@ function Cadastro() {
 
   return (
     <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 h-screen flex items-center justify-center relative overflow-hidden">
-
-
       <div className="bg-gradient-to-br from-sky-50 to-blue-50 shadow-2xl p-10 rounded-3xl w-full max-w-md relative z-10 border border-sky-100">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-sky-500 to-blue-600 rounded-full mb-4 shadow-lg">
@@ -128,7 +126,7 @@ function Cadastro() {
               onClick={() => navigate("/")}
               className="text-sky-600 cursor-pointer font-bold hover:text-sky-700 hover:underline transition"
             >
-              Faça login 
+              Faça login
             </button>
           </p>
         </div>

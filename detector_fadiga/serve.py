@@ -218,6 +218,10 @@ def process_frame(frame):
     return detection_data
 
 
+
+
+
+
 async def handle_client(websocket):
     """Handler para conexões WebSocket"""
     client_addr = websocket.remote_address

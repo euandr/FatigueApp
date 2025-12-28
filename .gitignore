@@ -10,6 +10,7 @@ ENV/
 ./detector_fadiga/env/
 ./detector_fadiga/.venv/
 ./detector_fadiga/.venv/
+\detector_fadiga\venv2
 
 # Python
 __pycache__/

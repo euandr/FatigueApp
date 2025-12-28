@@ -3,10 +3,15 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
 import { MdEmail, MdLock } from "react-icons/md";
 
+import { supabase } from "@/lib/supabase";
+
 
 
 
 function Login() {
+
+
+
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
@@ -96,3 +101,6 @@ function Login() {
   );
 }
 export default Login;
+
+
+

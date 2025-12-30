@@ -1,12 +1,21 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import alarmSound from "@/assets/alarm-clock.mp3";
 
 export const useFatigueDetection = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  // CONFIGURE YOUR WEBSOCKET SERVER URL HERE:
-  // const SERVER_URL = 'ws://localhost:8765';
-  const SERVER_URL = "ws://localhost:8765";
+
+  // Detectar servidor automaticamente
+  // - Se em localhost: ws://localhost:8765
+  // - Se em servidor remoto: ws://seu-servidor.com:8765
+  const getServerURL = () => {
+    const host = window.location.hostname;
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${host}:8765`;
+  };
+
+  const SERVER_URL = getServerURL();
   const [processedFrame, setProcessedFrame] = useState(null);
   const [events, setEvents] = useState([]);
   const [yawnCount, setYawnCount] = useState(0);
@@ -29,12 +38,12 @@ export const useFatigueDetection = () => {
   const intervalRef = useRef(null);
   const audioRef = useRef(null);
   const lastAlertRef = useRef({});
+  const yawnResetIntervalRef = useRef(null);
+  const isMutedRef = useRef(false);
 
   // Create alarm sound
   useEffect(() => {
-    audioRef.current = new Audio(
-      "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2eleWM3PlJxn97s0qxbSEdnm9Lf5+/s4dHMs6lqNyouYZzs8Ork39nV2dnQwrtxPhUlOnGh4/Xy6OHb2NnY09jN2LVcJxoYO3+t4/fy5+Ha19fX1dTV1MKyXiwjIUaItuHz8uXh29jY2NfV1NTTxLNhLiQkS4285PHx5ODa2NjY19bV1dTGtGMwJSVOj7/m8fHk4NrY2NjX19bW1ce1ZDElJlGSwufx8eTg29nZ2djX19bWyLdmMycnU5XD5/Hx5OHb2dnZ2NfX19bJuGgzKChVl8Xo8fHl4dvZ2dnY2NjX1sq5aTQpKVeZxujx8eXh29nZ2djY2NjWy7tqNSoqWZvH6fHx5eHb2dnZ2NjY2NfMvGw2KytbnMjp8fHl4dvZ2dnZ2NjY18y9bTcsLF2eyenly8eXi3NrZ2dnY2NjYzb5uOC0tX6DJ6vLx5uLc2tnZ2dnY2NjOv284Li5go8rq8vHm4tza2dnZ2dnZ2M/Abzkvb2GkyuvzwOLc2tra2dnZ2djQwXE5MDBjpsvr8vLm4t3a2tra2dnZ2NHCcjo="
-    );
+    audioRef.current = new Audio(alarmSound);
     return () => {
       if (audioRef.current) {
         audioRef.current = null;
@@ -42,12 +51,17 @@ export const useFatigueDetection = () => {
     };
   }, []);
 
+  // Sync isMuted with ref
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
   const playAlarm = useCallback(() => {
-    if (!isMuted && audioRef.current) {
+    if (!isMutedRef.current && audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(() => {});
     }
-  }, [isMuted]);
+  }, []);
 
   const addEvent = useCallback(
     (type, message) => {
@@ -76,7 +90,8 @@ export const useFatigueDetection = () => {
       if (
         type === "fatigue_alert" ||
         type === "eyes_closed" ||
-        type === "yawn"
+        type === "yawn" ||
+        type === "excess_blinks"
       ) {
         playAlarm();
       }
@@ -189,6 +204,11 @@ export const useFatigueDetection = () => {
         }
       }, 100); // ~10 FPS
 
+      // Reset yawn count every minute (60000 ms)
+      yawnResetIntervalRef.current = window.setInterval(() => {
+        setYawnCount(0);
+      }, 60000);
+
       setIsStreaming(true);
     } catch (error) {
       console.error("Error starting stream:", error);
@@ -199,6 +219,11 @@ export const useFatigueDetection = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+
+    if (yawnResetIntervalRef.current) {
+      clearInterval(yawnResetIntervalRef.current);
+      yawnResetIntervalRef.current = null;
     }
 
     if (wsRef.current) {
@@ -214,6 +239,19 @@ export const useFatigueDetection = () => {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+
+    // Reset metrics and yawn count when stopping stream
+    setMetrics({
+      ear: 0,
+      mar: 0,
+      blinks: 0,
+      totalBlinks: 0,
+      eyesClosed: false,
+      yawnDetected: false,
+      excessBlinks: false,
+      fatigueAlert: false,
+    });
+    setYawnCount(0);
 
     setIsStreaming(false);
     setIsConnected(false);

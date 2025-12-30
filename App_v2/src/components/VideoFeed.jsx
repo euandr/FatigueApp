@@ -40,6 +40,7 @@ const VideoFeed = forwardRef(
             className={`absolute inset-0 w-full h-full object-cover ${
               processedFrame ? "opacity-0" : "opacity-100"
             }`}
+            style={{ transform: "scaleX(-1)" }}
           />
 
           {/* Processed frame from Python */}
@@ -47,6 +48,7 @@ const VideoFeed = forwardRef(
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: "scaleX(-1)" }}
             />
           )}
 

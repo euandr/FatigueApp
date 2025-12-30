@@ -61,7 +61,7 @@ EYE_AR_CONSEC_FRAMES = 30
 BLINK_THRESH = 0.2
 BLINK_CONSEC_FRAMES = 3
 MOUTH_AR_THRESH = 0.6
-EXCESS_BLINKS_THRESH = 8  # Aumentado: 8 piscadas na janela de 30 frames para alerta
+EXCESS_BLINKS_THRESH = 5  # 5 piscadas na janela de 30 frames para alerta
 
 # Índices dos landmarks do MediaPipe Face Mesh
 LEFT_EYE_IDX = [33, 160, 158, 133, 153, 144]
@@ -202,7 +202,6 @@ def process_frame(frame):
             "mar": float(mar),
             "blinks": blinks_in_window,
             "totalBlinks": total_blinks,
-            "eyesClosed": eyes_closed,
             "yawnDetected": yawn_detected and yawn_on,
             "excessBlinks": excess_blinks,
             "fatigueAlert": fatigue_alert,

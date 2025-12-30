@@ -5,6 +5,8 @@ import Login from "./pages/Login.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
 import Monitoramento from "./pages/Monitoramento.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
+import EmailResetPassword from "./pages/EmailResetPassword.jsx";
 import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
@@ -30,6 +32,22 @@ const router = createBrowserRouter([
     element: (
       <App>
         <Monitoramento />
+      </App>
+    ),
+  },
+  {
+    path: "/EmailResetPassword",
+    element: (
+      <App>
+        <EmailResetPassword />
+      </App>
+    ),
+  },
+  {
+    path: "/reset-password",
+    element: (
+      <App>
+        <ResetPassword />
       </App>
     ),
   },

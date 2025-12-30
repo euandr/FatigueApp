@@ -72,6 +72,7 @@ while True:
 
 
     frame = cv2.resize(frame, (800, int(frame.shape[0] * 800 / frame.shape[1])))
+    frame = cv2.flip(frame, 1)  # Flip horizontal para corrigir espelho                                    | modifiquei aqui
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = face_mesh.process(rgb_frame)
 

@@ -1,15 +1,18 @@
-import { Camera, ArrowLeft } from "lucide-react";
+import { Camera, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import VideoFeed from "@/components/VideoFeed";
 import MetricsPanel from "@/components/MetricsPanel";
 import EventsPanel from "@/components/EventsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import { useFatigueDetection } from "@/hooks/useFatigueDetection";
+import { supabase } from "@/lib/supabase";
 
 //  de onde peguei esse arquivo estava salvo como Index.jsx
 
 const Monitoramento = () => {
   const navigate = useNavigate();
+  const [userEmail, setUserEmail] = useState("");
   const {
     videoRef,
     isStreaming,
@@ -23,6 +26,11 @@ const Monitoramento = () => {
     toggleMute,
   } = useFatigueDetection();
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
   const alertActive =
     metrics.fatigueAlert || metrics.yawnDetected || metrics.excessBlinks;
 
@@ -30,14 +38,14 @@ const Monitoramento = () => {
     <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 h-screen flex flex-col overflow-auto">
       {/* Header */}
       <header className="w-full bg-slate-800/80 backdrop-blur-sm border-b border-slate-700/50 px-4 md:px-6 lg:px-8 py-6">
-        <div className="flex items-center">
+        <div className="flex items-center justify-end">
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-emerald-500/50 rounded-lg transition-all duration-200 group"
           >
-            <ArrowLeft className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+            <LogOut className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
             <span className="text-sm font-semibold text-emerald-400 group-hover:text-emerald-300 transition-colors">
-              Voltar
+              Sair
             </span>
           </button>
         </div>
@@ -81,6 +89,7 @@ const Monitoramento = () => {
           </div>
 
           <MetricsPanel
+            isStreaming={isStreaming}
             ear={metrics.ear}
             mar={metrics.mar}
             blinks={metrics.blinks}

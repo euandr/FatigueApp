@@ -37,7 +37,7 @@ O servidor irá escutar em:
     - Local: ws://localhost:8765 (ou porta configurada)
     - Remoto: ws://seu-ip:8765 (quando WS_HOST=0.0.0.0, padrão)
 
-Para parar o servidor: Pressione Ctrl+C
+
 """
 
 import asyncio

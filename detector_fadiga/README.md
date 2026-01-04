@@ -9,14 +9,17 @@
 ```bash
 python -m venv venv
 ```
+
 2. ativar
 
 **PowerShell:**
+
 ```powershell
 venv\Scripts\Activate.ps1
 ```
 
 **CMD:**
+
 ```cmd
 venv\Scripts\activate.bat
 ```
@@ -27,3 +30,7 @@ venv\Scripts\activate.bat
 pip install -r requirements.txt
 python serve.py
 ```
+
+## atualizar o requirements
+
+pip freeze > requirements.txt

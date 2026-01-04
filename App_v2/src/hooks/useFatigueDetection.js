@@ -9,7 +9,14 @@ export const useFatigueDetection = () => {
   // Detectar servidor automaticamente
   // - Se em localhost: ws://localhost:8765
   // - Se em servidor remoto: ws://seu-servidor.com:8765
+
   const getServerURL = () => {
+    // prioridade: variável de ambiente (ngrok / produção)
+    if (import.meta.env.VITE_WS_URL) {
+      return import.meta.env.VITE_WS_URL;
+    }
+
+    // fallback: comportamento antigo
     const host = window.location.hostname;
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     return `${protocol}://${host}:8765`;

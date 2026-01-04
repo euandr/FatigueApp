@@ -10,7 +10,7 @@ jax==0.7.1
 jaxlib==0.7.1
 kiwisolver==1.4.9
 matplotlib==3.8.2
-mediapipe==0.10.21
+mediapipe>=0.10.30
 ml_dtypes==0.5.4
 numpy==1.26.4
 opencv-contrib-python==4.11.0.86
@@ -28,3 +28,4 @@ sentencepiece==0.2.1
 six==1.17.0
 sounddevice==0.5.3
 websockets==15.0.1
+

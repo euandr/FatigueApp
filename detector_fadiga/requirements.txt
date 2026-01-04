@@ -9,7 +9,7 @@ kiwisolver==1.4.9
 matplotlib==3.8.2
 mediapipe
 ml_dtypes==0.5.4
-numpy==1.26.4
+numpy
 opencv-contrib-python==4.11.0.86
 opt_einsum==3.4.0
 packaging==25.0
@@ -21,4 +21,5 @@ python-dateutil==2.9.0.post0
 scipy==1.16.3
 six==1.17.0
 websockets==15.0.1
+
 

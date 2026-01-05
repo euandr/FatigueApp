@@ -257,11 +257,9 @@ async def main():
     # Criar aplicação aiohttp
     app = web.Application()
     
-    # Rotas
+    # Rotas (aiohttp já cria automaticamente rotas HEAD para cada GET)
     app.router.add_get("/health", health_check)
-    app.router.add_head("/health", health_check)  # Responde a HEAD requests (health checks do Render)
-    app.router.add_get("/", health_check)  # Raiz também responde
-    app.router.add_head("/", health_check)
+    app.router.add_get("/", health_check)
     app.router.add_get("/ws", websocket_handler)
     
     logger.info(f"Iniciando servidor em http://{host}:{port}")

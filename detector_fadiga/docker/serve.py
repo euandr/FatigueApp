@@ -50,6 +50,8 @@ from scipy.spatial import distance as dist
 import base64
 import logging
 import os
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Thread
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -257,17 +259,61 @@ async def handle_client(websocket):
         logger.error(f"Erro na conexão: {e}")
 
 
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    """Handler para requisições HTTP (health checks)"""
+    
+    def do_GET(self):
+        """Responde a requisições GET"""
+        if self.path == "/health" or self.path == "/":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def do_HEAD(self):
+        """Responde a requisições HEAD (usadas por health checks do Render)"""
+        if self.path == "/health" or self.path == "/":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def log_message(self, format, *args):
+        """Silenciar logs padrão do HTTP server"""
+        logger.debug(format % args)
+
+
 async def main():
-    """Inicia o servidor WebSocket"""
+    """Inicia o servidor WebSocket + HTTP"""
     # Para produção: use "0.0.0.0" para aceitar conexões externas
     # Para desenvolvimento local: use "localhost"
     host = os.getenv("WS_HOST", "0.0.0.0")  # Aceita conexões de qualquer IP
-    port = int(os.getenv("WS_PORT", "8765"))
+    ws_port = int(os.getenv("WS_PORT", "8765"))
+    http_port = int(os.getenv("HTTP_PORT", "8000"))
     
-    logger.info(f"Iniciando servidor de detecção de fadiga em ws://{host}:{port}")
+    logger.info(f"Iniciando servidor de detecção de fadiga em ws://{host}:{ws_port}")
+    logger.info(f"Health check disponível em http://{host}:{http_port}/health")
     logger.info("Pressione Ctrl+C para encerrar")
     
-    async with websockets.serve(handle_client, host, port):
+    # Iniciar servidor HTTP em thread separada
+    def run_http_server():
+        try:
+            server = HTTPServer((host, http_port), HealthCheckHandler)
+            logger.info(f"Servidor HTTP iniciado na porta {http_port}")
+            server.serve_forever()
+        except Exception as e:
+            logger.error(f"Erro ao iniciar servidor HTTP: {e}")
+    
+    http_thread = Thread(target=run_http_server, daemon=True)
+    http_thread.start()
+    
+    # Iniciar servidor WebSocket
+    async with websockets.serve(handle_client, host, ws_port):
         await asyncio.Future()  # Rodar para sempre
 
 

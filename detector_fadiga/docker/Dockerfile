@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Expor portas: WebSocket (8765) e HTTP Health Check (8000)
-EXPOSE 8000 8765
+# Expor porta única para HTTP + WebSocket
+EXPOSE 8765
 
 CMD ["python", "serve.py"]

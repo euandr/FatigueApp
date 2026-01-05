@@ -16,10 +16,10 @@ export const useFatigueDetection = () => {
       return import.meta.env.VITE_WS_URL;
     }
 
-    // fallback: comportamento antigo
+    // fallback: comportamento antigo (localhost na porta 8765 com /ws)
     const host = window.location.hostname;
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://${host}:8765`;
+    return `${protocol}://${host}:8765/ws`;
   };
 
   const SERVER_URL = getServerURL();

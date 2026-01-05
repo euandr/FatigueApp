@@ -5,34 +5,11 @@ Servidor WebSocket para Detecção de Fadiga
 Execute este servidor localmente para processar os frames da webcam.
 
 Instalação das dependências:
-    pip install websockets opencv-python mediapipe scipy numpy
+    pip install websockets opencv-python mediapipe scipy numpy aiohttp
 
 EXECUÇÃO LOCAL:
-    Opção 1 - Executar diretamente (aceita conexões locais e remotas):
-        python serve.py
-        
-    Opção 2 - Forçar apenas conexões locais (localhost):
-        Windows PowerShell:
-            $env:WS_HOST="localhost"
-            python serve.py
-        
-        Windows CMD:
-            set WS_HOST=localhost
-            python serve.py
-        
-        Linux/Mac:
-            export WS_HOST=localhost
-            python serve.py
+    python serve.py
     
-    Opção 3 - Personalizar porta:
-        Windows PowerShell:
-            $env:WS_PORT="9000"
-            python serve.py
-        
-        Linux/Mac:
-            export WS_PORT=9000
-            python serve.py
-
 O servidor irá escutar em:
     - Local: ws://localhost:8765 (ou porta configurada)
     - Remoto: ws://seu-ip:8765 (quando WS_HOST=0.0.0.0, padrão)
@@ -41,7 +18,6 @@ O servidor irá escutar em:
 """
 
 import asyncio
-import websockets
 import json
 import cv2
 import numpy as np
@@ -50,8 +26,8 @@ from scipy.spatial import distance as dist
 import base64
 import logging
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from threading import Thread
+from aiohttp import web
+# tem websockets integrado no aiohttp
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -223,105 +199,92 @@ def process_frame(frame):
 
 
 
-async def handle_client(websocket):
-    """Handler para conexões WebSocket"""
-    client_addr = websocket.remote_address
-    logger.info(f"Cliente conectado: {client_addr}")
+async def websocket_handler(request):
+    """Handler para WebSocket usando aiohttp"""
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    
+    client_addr = request.remote
+    logger.info(f"Cliente WebSocket conectado: {client_addr}")
     
     try:
-        async for message in websocket:
-            try:
-                data = json.loads(message)
-                
-                if "frame" in data:
-                    # Decodificar frame base64
-                    frame_data = base64.b64decode(data["frame"])
-                    np_arr = np.frombuffer(frame_data, np.uint8)
-                    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
                     
-                    if frame is not None:
-                        # Processar frame
-                        result = process_frame(frame)
+                    if "frame" in data:
+                        # Decodificar frame base64
+                        frame_data = base64.b64decode(data["frame"])
+                        np_arr = np.frombuffer(frame_data, np.uint8)
+                        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
                         
-                        # Enviar resultado
-                        await websocket.send(json.dumps(result))
-                    else:
-                        logger.warning("Frame inválido recebido")
-                        
-            except json.JSONDecodeError as e:
-                logger.error(f"Erro ao decodificar JSON: {e}")
-            except Exception as e:
-                logger.error(f"Erro ao processar frame: {e}")
-                
-    except websockets.exceptions.ConnectionClosed:
-        logger.info(f"Cliente desconectado: {client_addr}")
+                        if frame is not None:
+                            # Processar frame
+                            result = process_frame(frame)
+                            
+                            # Enviar resultado
+                            await ws.send_json(result)
+                        else:
+                            logger.warning("Frame inválido recebido")
+                            
+                except json.JSONDecodeError as e:
+                    logger.error(f"Erro ao decodificar JSON: {e}")
+                except Exception as e:
+                    logger.error(f"Erro ao processar frame: {e}")
+            
+            elif msg.type == web.WSMsgType.ERROR:
+                logger.error(f"Erro WebSocket: {ws.exception()}")
+    
     except Exception as e:
         logger.error(f"Erro na conexão: {e}")
+    finally:
+        logger.info(f"Cliente WebSocket desconectado: {client_addr}")
+    
+    return ws
 
 
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    """Handler para requisições HTTP (health checks)"""
-    
-    def do_GET(self):
-        """Responde a requisições GET"""
-        if self.path == "/health" or self.path == "/":
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "ok"}).encode())
-        else:
-            self.send_response(404)
-            self.end_headers()
-    
-    def do_HEAD(self):
-        """Responde a requisições HEAD (usadas por health checks do Render)"""
-        if self.path == "/health" or self.path == "/":
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-        else:
-            self.send_response(404)
-            self.end_headers()
-    
-    def log_message(self, format, *args):
-        """Silenciar logs padrão do HTTP server"""
-        logger.debug(format % args)
+async def health_check(request):
+    """Endpoint HTTP para health check"""
+    return web.json_response({"status": "ok"})
 
 
 async def main():
-    """Inicia o servidor WebSocket + HTTP"""
-    # Para produção: use "0.0.0.0" para aceitar conexões externas
-    # Para desenvolvimento local: use "localhost"
-    host = os.getenv("WS_HOST", "0.0.0.0")  # Aceita conexões de qualquer IP
-    ws_port = int(os.getenv("WS_PORT", "8765"))
-    http_port = int(os.getenv("HTTP_PORT", "8000"))
+    """Inicia o servidor com HTTP + WebSocket na mesma porta"""
+    host = os.getenv("WS_HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8765"))
     
-    logger.info(f"Iniciando servidor de detecção de fadiga em ws://{host}:{ws_port}")
-    logger.info(f"Health check disponível em http://{host}:{http_port}/health")
+    # Criar aplicação aiohttp
+    app = web.Application()
+    
+    # Rotas
+    app.router.add_get("/health", health_check)
+    app.router.add_head("/health", health_check)  # Responde a HEAD requests (health checks do Render)
+    app.router.add_get("/", health_check)  # Raiz também responde
+    app.router.add_head("/", health_check)
+    app.router.add_get("/ws", websocket_handler)
+    
+    logger.info(f"Iniciando servidor em http://{host}:{port}")
+    logger.info(f"  - WebSocket: ws://{host}:{port}/ws")
+    logger.info(f"  - Health Check: http://{host}:{port}/health ou http://{host}:{port}/")
     logger.info("Pressione Ctrl+C para encerrar")
     
-    # Iniciar servidor HTTP em thread separada
-    def run_http_server():
-        try:
-            server = HTTPServer((host, http_port), HealthCheckHandler)
-            logger.info(f"Servidor HTTP iniciado na porta {http_port}")
-            server.serve_forever()
-        except Exception as e:
-            logger.error(f"Erro ao iniciar servidor HTTP: {e}")
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host, port)
+    await site.start()
     
-    http_thread = Thread(target=run_http_server, daemon=True)
-    http_thread.start()
-    
-    # Iniciar servidor WebSocket
-    async with websockets.serve(handle_client, host, ws_port):
-        await asyncio.Future()  # Rodar para sempre
+    # Manter o servidor rodando
+    try:
+        await asyncio.Event().wait()
+    except KeyboardInterrupt:
+        logger.info("Servidor encerrado")
+    finally:
+        await runner.cleanup()
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Servidor encerrado")
+    asyncio.run(main())
 
 
 

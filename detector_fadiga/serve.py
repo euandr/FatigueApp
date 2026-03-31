@@ -7,31 +7,6 @@ Execute este servidor localmente para processar os frames da webcam.
 Instalação das dependências:
     pip install websockets opencv-python mediapipe scipy numpy
 
-EXECUÇÃO LOCAL:
-    Opção 1 - Executar diretamente (aceita conexões locais e remotas):
-        python serve.py
-        
-    Opção 2 - Forçar apenas conexões locais (localhost):
-        Windows PowerShell:
-            $env:WS_HOST="localhost"
-            python serve.py
-        
-        Windows CMD:
-            set WS_HOST=localhost
-            python serve.py
-        
-        Linux/Mac:
-            export WS_HOST=localhost
-            python serve.py
-    
-    Opção 3 - Personalizar porta:
-        Windows PowerShell:
-            $env:WS_PORT="9000"
-            python serve.py
-        
-        Linux/Mac:
-            export WS_PORT=9000
-            python serve.py
 
 O servidor irá escutar em:
     - Local: ws://localhost:8765 (ou porta configurada)

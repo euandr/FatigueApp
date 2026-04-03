@@ -1,10 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import alarmSound from "@/assets/alarm-clock.mp3";
+import { createSession, endSession } from "@/lib/sessions";
+import { saveEvent } from "@/lib/events";
+import { supabase } from "@/lib/supabase";
 
 export const useFatigueDetection = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   // Detectar servidor automaticamente
   // - Se em localhost: ws://localhost:8765
@@ -47,6 +52,9 @@ export const useFatigueDetection = () => {
   const lastAlertRef = useRef({});
   const yawnResetIntervalRef = useRef(null);
   const isMutedRef = useRef(false);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectDelayRef = useRef(1000); // Começar com 1 segundo
+  const sessionIdRef = useRef(null); // Ref para sessionId (sincronizado via useEffect)
 
   // Create alarm sound
   useEffect(() => {
@@ -58,10 +66,28 @@ export const useFatigueDetection = () => {
     };
   }, []);
 
+  // Get current user ID
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    getUser();
+  }, []);
+
   // Sync isMuted with ref
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
+
+  // Sync sessionId with ref
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   const playAlarm = useCallback(() => {
     if (!isMutedRef.current && audioRef.current) {
@@ -71,7 +97,7 @@ export const useFatigueDetection = () => {
   }, []);
 
   const addEvent = useCallback(
-    (type, message) => {
+    (message, type, metadata = {}) => {
       const now = Date.now();
       const cooldown = 2000; // 2 seconds cooldown between same event types
 
@@ -94,88 +120,157 @@ export const useFatigueDetection = () => {
 
       setEvents((prev) => [event, ...prev].slice(0, 50));
 
-      if (
-        type === "fatigue_alert" ||
-        type === "eyes_closed" ||
-        type === "yawn" ||
-        type === "excess_blinks"
-      ) {
+      // Salvar no banco APENAS eventos críticos (que disparam alerta)
+      const isCriticalEvent =
+        type === "fatigue_alert" || type === "yawn" || type === "excess_blinks";
+
+      if (isCriticalEvent && sessionIdRef.current) {
+        // Construir value com a métrica associada
+        let metricValue = type; // Padrão: tipo técnico
+
+        if (type === "yawn" && metadata.mar !== undefined) {
+          metricValue = `MAR: ${metadata.mar.toFixed(3)}`;
+        } else if (type === "fatigue_alert" && metadata.ear !== undefined) {
+          metricValue = `EAR: ${metadata.ear.toFixed(3)}`;
+        } else if (
+          type === "excess_blinks" &&
+          metadata.blinks_count !== undefined
+        ) {
+          metricValue = `Blinks: ${metadata.blinks_count}`;
+        }
+
+        console.log(`💾 Salvando: ${message} → ${metricValue}`);
+        // event_type = descrição, value = métrica
+        saveEvent(sessionIdRef.current, message, metricValue).catch((error) => {
+          console.error("❌ Erro ao salvar evento no BD:", error);
+        });
+      }
+
+      // Tocar alerta se for evento crítico
+      if (isCriticalEvent) {
         playAlarm();
       }
     },
-    [playAlarm]
+    [playAlarm],
   );
 
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+  const scheduleReconnect = useCallback((streaming) => {
+    // Limpar timeout anterior
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    // Apenas reconectar se ainda está streaming
+    if (!streaming) {
+      reconnectDelayRef.current = 1000; // Reset delay
       return;
     }
 
-    try {
-      wsRef.current = new WebSocket(SERVER_URL);
+    const delay = reconnectDelayRef.current;
+    console.log(`Tentando reconectar em ${delay}ms...`);
 
-      wsRef.current.onopen = () => {
-        console.log("WebSocket connected");
-        setIsConnected(true);
-      };
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connectWebSocket(streaming);
+    }, delay);
 
-      wsRef.current.onclose = () => {
-        console.log("WebSocket disconnected");
+    // Aumentar delay exponencialmente até máximo de 30 segundos
+    reconnectDelayRef.current = Math.min(
+      reconnectDelayRef.current * 1.5,
+      30000,
+    );
+  }, []);
+
+  const connectWebSocket = useCallback(
+    (streaming = isStreaming) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        // Resetar delay ao conectar com sucesso
+        reconnectDelayRef.current = 1000;
+        return;
+      }
+
+      try {
+        wsRef.current = new WebSocket(SERVER_URL);
+
+        wsRef.current.onopen = () => {
+          console.log("WebSocket connected");
+          setIsConnected(true);
+          // Resetar delay ao conectar com sucesso
+          reconnectDelayRef.current = 1000;
+        };
+
+        wsRef.current.onclose = () => {
+          console.log("WebSocket disconnected");
+          setIsConnected(false);
+          // Agendar reconexão se ainda está streaming
+          scheduleReconnect(streaming);
+        };
+
+        wsRef.current.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          setIsConnected(false);
+          // Agendar reconexão se ainda está streaming
+          scheduleReconnect(streaming);
+        };
+
+        wsRef.current.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            setMetrics(data);
+
+            if (data.frame) {
+              setProcessedFrame(data.frame);
+            }
+
+            // Generate events based on detection
+            if (data.fatigueAlert) {
+              addEvent(
+                "Alerta de fadiga detectado - olhos fechados por muito tempo",
+                "fatigue_alert",
+                { ear: data.ear, duration: "contínuo" },
+              );
+            }
+
+            if (data.yawnDetected) {
+              setYawnCount((prev) => prev + 1);
+              addEvent("Bocejo detectado", "yawn", { mar: data.mar });
+            }
+
+            if (data.excessBlinks) {
+              addEvent(
+                `Excesso de piscadas detectado (${data.blinks} em 30 frames)`,
+                "excess_blinks",
+                { blinks_count: data.blinks, threshold: 30 },
+              );
+            }
+          } catch (e) {
+            console.error("Error parsing WebSocket message:", e);
+          }
+        };
+      } catch (error) {
+        console.error("Error creating WebSocket:", error);
         setIsConnected(false);
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        setIsConnected(false);
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          setMetrics(data);
-
-          if (data.frame) {
-            setProcessedFrame(data.frame);
-          }
-
-          // Generate events based on detection
-          if (data.fatigueAlert) {
-            addEvent(
-              "fatigue_alert",
-              "Alerta de fadiga detectado - olhos fechados por muito tempo"
-            );
-          }
-
-          if (data.yawnDetected) {
-            setYawnCount((prev) => prev + 1);
-            addEvent("yawn", "Bocejo detectado");
-          }
-
-          if (data.excessBlinks) {
-            addEvent(
-              "excess_blinks",
-              `Excesso de piscadas detectado (${data.blinks} em 30 frames)`
-            );
-          }
-
-          if (data.eyesClosed && !data.fatigueAlert) {
-            addEvent(
-              "eyes_closed",
-              `Olhos fechados detectados (EAR: ${data.ear.toFixed(3)})`
-            );
-          }
-        } catch (e) {
-          console.error("Error parsing WebSocket message:", e);
-        }
-      };
-    } catch (error) {
-      console.error("Error creating WebSocket:", error);
-    }
-  }, [addEvent]);
+        // Agendar reconexão se ainda está streaming
+        scheduleReconnect(streaming);
+      }
+    },
+    [addEvent, scheduleReconnect, isStreaming],
+  );
 
   const startStreaming = useCallback(async () => {
     try {
+      // Create a new session when starting detection
+      if (!userId) {
+        console.error("User ID not available");
+        return;
+      }
+
+      const session = await createSession(userId);
+      if (session) {
+        setSessionId(session.id);
+        console.log("Session created:", session.id);
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
         audio: false,
@@ -192,7 +287,7 @@ export const useFatigueDetection = () => {
       canvasRef.current.width = 640;
       canvasRef.current.height = 480;
 
-      connectWebSocket();
+      connectWebSocket(true);
 
       // Start sending frames
       intervalRef.current = window.setInterval(() => {
@@ -220,9 +315,16 @@ export const useFatigueDetection = () => {
     } catch (error) {
       console.error("Error starting stream:", error);
     }
-  }, [connectWebSocket]);
+  }, [connectWebSocket, userId]);
 
-  const stopStreaming = useCallback(() => {
+  const stopStreaming = useCallback(async () => {
+    // Cancelar tentativas de reconexão
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    reconnectDelayRef.current = 1000; // Reset delay
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -247,6 +349,17 @@ export const useFatigueDetection = () => {
       videoRef.current.srcObject = null;
     }
 
+    // End session when stopping detection
+    if (sessionId) {
+      try {
+        await endSession(sessionId);
+        console.log("Session ended:", sessionId);
+        setSessionId(null);
+      } catch (error) {
+        console.error("Error ending session:", error);
+      }
+    }
+
     // Reset metrics and yawn count when stopping stream
     setMetrics({
       ear: 0,
@@ -263,7 +376,7 @@ export const useFatigueDetection = () => {
     setIsStreaming(false);
     setIsConnected(false);
     setProcessedFrame(null);
-  }, []);
+  }, [sessionId]);
 
   const toggleStreaming = useCallback(() => {
     if (isStreaming) {

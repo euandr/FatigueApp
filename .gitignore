@@ -41,3 +41,10 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# agents- instruções
+App_v2/.github/agents/
+App_v2/.github/instructions/
+
+# Documentação local (não versionar)
+App_v2/esclarecendo/

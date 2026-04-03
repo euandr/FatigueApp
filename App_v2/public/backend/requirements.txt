@@ -1,8 +1,0 @@
-# Dependências do Servidor de Detecção de Fadiga
-# Instale com: pip install -r requirements.txt
-
-websockets>=11.0
-opencv-python>=4.8.0
-mediapipe>=0.10.0
-scipy>=1.11.0
-numpy>=1.24.0

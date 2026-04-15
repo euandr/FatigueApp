@@ -4,12 +4,13 @@ import { createSession, endSession } from "@/lib/sessions";
 import { saveEvent } from "@/lib/events";
 import { supabase } from "@/lib/supabase";
 
-export const useFatigueDetection = () => {
+export const useFatigueDetection = ({ deviceId = null } = {}) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [currentDeviceId, setCurrentDeviceId] = useState(deviceId);
 
   // Detectar servidor automaticamente
   // - Se em localhost: ws://localhost:8765
@@ -88,6 +89,11 @@ export const useFatigueDetection = () => {
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  // Update deviceId when prop changes
+  useEffect(() => {
+    setCurrentDeviceId(deviceId);
+  }, [deviceId]);
 
   const playAlarm = useCallback(() => {
     if (!isMutedRef.current && audioRef.current) {
@@ -257,65 +263,80 @@ export const useFatigueDetection = () => {
     [addEvent, scheduleReconnect, isStreaming],
   );
 
-  const startStreaming = useCallback(async () => {
-    try {
-      // Create a new session when starting detection
-      if (!userId) {
-        console.error("User ID not available");
-        return;
-      }
-
-      const session = await createSession(userId);
-      if (session) {
-        setSessionId(session.id);
-        console.log("Session created:", session.id);
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: "user" },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-
-      // Create canvas for capturing frames
-      canvasRef.current = document.createElement("canvas");
-      canvasRef.current.width = 640;
-      canvasRef.current.height = 480;
-
-      connectWebSocket(true);
-
-      // Start sending frames
-      intervalRef.current = window.setInterval(() => {
-        if (
-          videoRef.current &&
-          canvasRef.current &&
-          wsRef.current?.readyState === WebSocket.OPEN
-        ) {
-          const ctx = canvasRef.current.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(videoRef.current, 0, 0, 640, 480);
-            const frameData = canvasRef.current.toDataURL("image/jpeg", 0.7);
-            const base64Data = frameData.split(",")[1];
-            wsRef.current.send(JSON.stringify({ frame: base64Data }));
-          }
+  const startStreaming = useCallback(
+    async (overrideDeviceId = null) => {
+      try {
+        // Create a new session when starting detection
+        if (!userId) {
+          console.error("User ID not available");
+          return;
         }
-      }, 100); // ~10 FPS
 
-      // Reset yawn count every minute (60000 ms)
-      yawnResetIntervalRef.current = window.setInterval(() => {
-        setYawnCount(0);
-      }, 60000);
+        const deviceIdToUse = overrideDeviceId || currentDeviceId;
 
-      setIsStreaming(true);
-    } catch (error) {
-      console.error("Error starting stream:", error);
-    }
-  }, [connectWebSocket, userId]);
+        if (!deviceIdToUse) {
+          console.error("Device ID not available");
+          return;
+        }
+
+        const session = await createSession(userId, deviceIdToUse);
+        if (session) {
+          setSessionId(session.id);
+          console.log(
+            "Session created:",
+            session.id,
+            "with device:",
+            deviceIdToUse,
+          );
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: "user" },
+          audio: false,
+        });
+
+        streamRef.current = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        // Create canvas for capturing frames
+        canvasRef.current = document.createElement("canvas");
+        canvasRef.current.width = 640;
+        canvasRef.current.height = 480;
+
+        connectWebSocket(true);
+
+        // Start sending frames
+        intervalRef.current = window.setInterval(() => {
+          if (
+            videoRef.current &&
+            canvasRef.current &&
+            wsRef.current?.readyState === WebSocket.OPEN
+          ) {
+            const ctx = canvasRef.current.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(videoRef.current, 0, 0, 640, 480);
+              const frameData = canvasRef.current.toDataURL("image/jpeg", 0.7);
+              const base64Data = frameData.split(",")[1];
+              wsRef.current.send(JSON.stringify({ frame: base64Data }));
+            }
+          }
+        }, 100); // ~10 FPS
+
+        // Reset yawn count every minute (60000 ms)
+        yawnResetIntervalRef.current = window.setInterval(() => {
+          setYawnCount(0);
+        }, 60000);
+
+        setIsStreaming(true);
+      } catch (error) {
+        console.error("Error starting stream:", error);
+      }
+    },
+    [connectWebSocket, userId],
+  );
 
   const stopStreaming = useCallback(async () => {
     // Cancelar tentativas de reconexão
@@ -378,13 +399,16 @@ export const useFatigueDetection = () => {
     setProcessedFrame(null);
   }, [sessionId]);
 
-  const toggleStreaming = useCallback(() => {
-    if (isStreaming) {
-      stopStreaming();
-    } else {
-      startStreaming();
-    }
-  }, [isStreaming, startStreaming, stopStreaming]);
+  const toggleStreaming = useCallback(
+    (overrideDeviceId = null) => {
+      if (isStreaming) {
+        stopStreaming();
+      } else {
+        startStreaming(overrideDeviceId);
+      }
+    },
+    [isStreaming, startStreaming, stopStreaming],
+  );
 
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => !prev);

@@ -6,6 +6,7 @@ import MetricsPanel from "@/components/MetricsPanel";
 import EventsPanel from "@/components/EventsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import { useFatigueDetection } from "@/hooks/useFatigueDetection";
+import { useDevices } from "@/hooks/useDevices";
 import { supabase } from "@/lib/supabase";
 
 //  de onde peguei esse arquivo estava salvo como Index.jsx
@@ -13,6 +14,11 @@ import { supabase } from "@/lib/supabase";
 const Monitoramento = () => {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState("");
+
+  // ✅ PRIMEIRO: Get devices hook
+  const { currentDevice, registerDeviceOnCamera } = useDevices();
+
+  // ✅ SEGUNDO: Use FatigueDetection WITH currentDevice.id
   const {
     videoRef,
     isStreaming,
@@ -24,7 +30,34 @@ const Monitoramento = () => {
     yawnCount,
     toggleStreaming,
     toggleMute,
-  } = useFatigueDetection();
+  } = useFatigueDetection({ deviceId: currentDevice?.id });
+
+  // ✅ Handler para iniciar/parar com device pronto
+  const handleStartStop = async () => {
+    // Se está parando, só para
+    if (isStreaming) {
+      toggleStreaming();
+      return;
+    }
+
+    // Se está iniciando e não tem device, registra PRIMEIRO
+    if (!currentDevice) {
+      console.log("📱 Registrando device...");
+      const result = await registerDeviceOnCamera();
+      if (!result.success) {
+        console.error("Falha ao registrar device:", result.error);
+        return;
+      }
+      console.log("✅ Device registrado:", result.device?.id);
+
+      // Inicia streaming COM o deviceId registrado
+      toggleStreaming(result.device?.id);
+    } else {
+      // Se já tem device, usa o ID dele
+      console.log("🎬 Iniciando streaming com device:", currentDevice?.id);
+      toggleStreaming(currentDevice?.id);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -61,6 +94,7 @@ const Monitoramento = () => {
             isStreaming={isStreaming}
             processedFrame={processedFrame}
             alertActive={alertActive}
+            deviceName={currentDevice?.name || "CAM_01"}
           />
 
           {/* Control Panel - Below video on desktop */}
@@ -69,7 +103,7 @@ const Monitoramento = () => {
               isStreaming={isStreaming}
               isConnected={isConnected}
               isMuted={isMuted}
-              onStartStop={toggleStreaming}
+              onStartStop={handleStartStop}
               onMuteToggle={toggleMute}
             />
           </div>
@@ -83,7 +117,7 @@ const Monitoramento = () => {
               isStreaming={isStreaming}
               isConnected={isConnected}
               isMuted={isMuted}
-              onStartStop={toggleStreaming}
+              onStartStop={handleStartStop}
               onMuteToggle={toggleMute}
             />
           </div>

@@ -6,10 +6,30 @@ import { supabase } from "./supabase";
  */
 function getBrasiliaTimestamp() {
   const now = new Date();
-  const brasiliaTime = new Date(
-    now.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-  );
-  return brasiliaTime.toISOString();
+
+  // Cria formatter para Brasília (UTC-3)
+  const formatter = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(now);
+  const partMap = {};
+
+  parts.forEach(({ type, value }) => {
+    partMap[type] = value;
+  });
+
+  // Constrói ISO string válida no horário de Brasília
+  const isoString = `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour}:${partMap.minute}:${partMap.second}`;
+
+  return isoString;
 }
 
 /**

@@ -2,7 +2,16 @@ import { useRef, useEffect, forwardRef } from "react";
 import { Camera, CameraOff } from "lucide-react";
 
 const VideoFeed = forwardRef(
-  ({ isConnected, isStreaming, processedFrame, alertActive }, ref) => {
+  (
+    {
+      isConnected,
+      isStreaming,
+      processedFrame,
+      alertActive,
+      deviceName = "CAM_01",
+    },
+    ref,
+  ) => {
     const canvasRef = useRef(null);
 
     useEffect(() => {
@@ -76,7 +85,9 @@ const VideoFeed = forwardRef(
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Camera className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-mono text-slate-300">CAM_01</span>
+              <span className="text-sm font-mono text-slate-300">
+                {deviceName}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <div
@@ -101,7 +112,7 @@ const VideoFeed = forwardRef(
         )}
       </div>
     );
-  }
+  },
 );
 
 VideoFeed.displayName = "VideoFeed";

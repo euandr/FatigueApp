@@ -3,15 +3,21 @@ import { supabase } from "./supabase";
 /**
  * Cria uma nova sessão de detecção de fadiga
  * @param {string} userId - ID do usuário (UUID)
- * @returns {Promise<{id: string, user_id: string, started_at: string} | null>}
+ * @param {string} deviceId - ID do device/câmera (UUID)
+ * @returns {Promise<{id: string, user_id: string, device_id: string, started_at: string} | null>}
  */
-export async function createSession(userId) {
+export async function createSession(userId, deviceId) {
   try {
+    if (!deviceId) {
+      throw new Error("deviceId é obrigatório para criar uma sessão");
+    }
+
     const { data, error } = await supabase
       .from("sessions")
       .insert([
         {
           user_id: userId,
+          device_id: deviceId,
           started_at: new Date().toISOString(),
         },
       ])

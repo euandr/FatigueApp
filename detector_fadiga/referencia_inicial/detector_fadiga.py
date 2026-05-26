@@ -8,7 +8,7 @@ from threading import Thread
 import time
 
 # Constantes
-ALARM = "alarm.wav"
+ALARM = "../alarm-clock-90867.mp3"  # Caminho para o arquivo de alarme
 EYE_AR_THRESH = 0.2
 EYE_AR_CONSEC_FRAMES = 30
 EAR_HISTORY = []

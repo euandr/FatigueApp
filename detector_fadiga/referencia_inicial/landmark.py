@@ -33,7 +33,7 @@ while True:
                 x, y = int(lm.x * w), int(lm.y * h)
                 cv2.circle(frame, (x, y), 1, (0, 0, 255), -1)
 
-    cv2.imshow("Frame", frame)
+    cv2.imshow("Frame", cv2.flip(frame,1))
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break

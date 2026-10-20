@@ -96,7 +96,7 @@ const VideoFeed = forwardRef(
                 }`}
               />
               <span className="text-xs font-mono text-slate-400">
-                {isConnected ? "ONLINE" : "OFFLINE"}
+                {isConnected ? "CONECTADA" : "DESCONECTADA"}
               </span>
             </div>
           </div>

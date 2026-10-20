@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import { createOrGetDevice, getActiveDevices } from "@/lib/queries/devices";
+import { supabase } from "@/services/supabase";
+import { createOrGetDevice, getActiveDevices } from "@/services/queries/devices";
 
 /**
  * Hook para gerenciar devices do usuário

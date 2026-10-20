@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/services/supabase";
 
 /**
  * Registra/cria um novo device para o usuário
@@ -43,7 +43,7 @@ export async function createOrGetDevice(userId, deviceName = null) {
     if (error) throw error;
     return { data, isNew: true };
   } catch (error) {
-    console.error("Error creating/getting device:", error);
+    console.error("Erro ao criar/buscar dispositivo:", error);
     return { error };
   }
 }
@@ -65,7 +65,7 @@ export async function getActiveDevices(userId) {
     if (error) throw error;
     return { data };
   } catch (error) {
-    console.error("Error fetching active devices:", error);
+    console.error("Erro ao buscar dispositivos ativos:", error);
     return { error, data: [] };
   }
 }
@@ -86,7 +86,7 @@ export async function getDevice(deviceId) {
     if (error) throw error;
     return { data };
   } catch (error) {
-    console.error("Error fetching device:", error);
+    console.error("Erro ao buscar dispositivo:", error);
     return { error };
   }
 }
@@ -109,7 +109,7 @@ export async function updateDevice(deviceId, updates) {
     if (error) throw error;
     return { data };
   } catch (error) {
-    console.error("Error updating device:", error);
+    console.error("Erro ao atualizar dispositivo:", error);
     return { error };
   }
 }

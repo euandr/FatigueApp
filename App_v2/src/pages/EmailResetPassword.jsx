@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, AlertCircle, CheckCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/services/supabase";
 
 function EmailResetPassword() {
   const navigate = useNavigate();

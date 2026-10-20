@@ -7,7 +7,7 @@ import EventsPanel from "@/components/EventsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import { useFatigueDetection } from "@/hooks/useFatigueDetection";
 import { useDevices } from "@/hooks/useDevices";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/services/supabase";
 
 //  de onde peguei esse arquivo estava salvo como Index.jsx
 
@@ -145,6 +145,8 @@ const Monitoramento = () => {
           <p>Detecção de Fadiga v1.0</p>
         </div>
       </footer>
+      
+      
     </div>
   );
 };

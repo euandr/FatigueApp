@@ -7,8 +7,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { MdEmail, MdLock } from "react-icons/md";
 import { FcGoogle } from "react-icons/fc";
-import { useAuthRedirect } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { useAuthRedirect } from "@/services/auth";
+import { supabase } from "@/services/supabase";
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);

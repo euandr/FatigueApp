@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import alarmSound from "@/assets/alarm-clock.mp3";
-import { createSession, endSession } from "@/lib/sessions";
-import { saveEvent } from "@/lib/events";
-import { supabase } from "@/lib/supabase";
+import { createSession, endSession } from "@/services/sessions";
+import { saveEvent } from "@/services/events";
+import { supabase } from "@/services/supabase";
 
 export const useFatigueDetection = ({ deviceId = null } = {}) => {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -198,21 +198,21 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
         wsRef.current = new WebSocket(SERVER_URL);
 
         wsRef.current.onopen = () => {
-          console.log("WebSocket connected");
+          console.log("WebSocket conectado");
           setIsConnected(true);
           // Resetar delay ao conectar com sucesso
           reconnectDelayRef.current = 1000;
         };
 
         wsRef.current.onclose = () => {
-          console.log("WebSocket disconnected");
+          console.log("WebSocket desconectado");
           setIsConnected(false);
           // Agendar reconexão se ainda está streaming
           scheduleReconnect(streaming);
         };
 
         wsRef.current.onerror = (error) => {
-          console.error("WebSocket error:", error);
+          console.error("Erro no WebSocket:", error);
           setIsConnected(false);
           // Agendar reconexão se ainda está streaming
           scheduleReconnect(streaming);
@@ -228,7 +228,7 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
               setProcessedFrame(data.frame);
             }
 
-            // Generate events based on detection
+            // Gerar eventos com base na detecção
             if (data.fatigueAlert) {
               addEvent(
                 "Alerta de fadiga detectado - olhos fechados por muito tempo",
@@ -250,11 +250,11 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
               );
             }
           } catch (e) {
-            console.error("Error parsing WebSocket message:", e);
+            console.error("Erro ao interpretar mensagem do WebSocket:", e);
           }
         };
       } catch (error) {
-        console.error("Error creating WebSocket:", error);
+        console.error("Erro ao criar WebSocket:", error);
         setIsConnected(false);
         // Agendar reconexão se ainda está streaming
         scheduleReconnect(streaming);
@@ -266,16 +266,16 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
   const startStreaming = useCallback(
     async (overrideDeviceId = null) => {
       try {
-        // Create a new session when starting detection
+        // Criar uma nova sessão ao iniciar a detecção
         if (!userId) {
-          console.error("User ID not available");
+          console.error("ID do usuário indisponível");
           return;
         }
 
         const deviceIdToUse = overrideDeviceId || currentDeviceId;
 
         if (!deviceIdToUse) {
-          console.error("Device ID not available");
+          console.error("ID do dispositivo indisponível");
           return;
         }
 
@@ -283,9 +283,9 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
         if (session) {
           setSessionId(session.id);
           console.log(
-            "Session created:",
+            "Sessão criada:",
             session.id,
-            "with device:",
+            "com dispositivo:",
             deviceIdToUse,
           );
         }
@@ -332,7 +332,7 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
 
         setIsStreaming(true);
       } catch (error) {
-        console.error("Error starting stream:", error);
+        console.error("Erro ao iniciar transmissão:", error);
       }
     },
     [connectWebSocket, userId],
@@ -370,14 +370,14 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
       videoRef.current.srcObject = null;
     }
 
-    // End session when stopping detection
+    // Finalizar a sessão ao interromper a detecção
     if (sessionId) {
       try {
         await endSession(sessionId);
-        console.log("Session ended:", sessionId);
+        console.log("Sessão finalizada:", sessionId);
         setSessionId(null);
       } catch (error) {
-        console.error("Error ending session:", error);
+        console.error("Erro ao finalizar sessão:", error);
       }
     }
 

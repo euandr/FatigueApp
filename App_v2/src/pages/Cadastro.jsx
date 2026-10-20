@@ -6,7 +6,7 @@ import {
 } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
 import { MdEmail, MdLock, MdPerson } from "react-icons/md";
-import { handleCadastro } from "@/lib/auth";
+import { handleCadastro } from "@/services/auth";
 
 function Cadastro() {
   const [showPassword, setShowPassword] = useState(false);

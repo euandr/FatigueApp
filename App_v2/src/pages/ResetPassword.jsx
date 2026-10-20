@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { MdLock } from "react-icons/md";
 import { AlertCircle, CheckCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/services/supabase";
 
 function ResetPassword() {
   const navigate = useNavigate();

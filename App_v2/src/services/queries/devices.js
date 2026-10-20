@@ -68,6 +68,7 @@ export async function getActiveDevices(userId) {
     console.error("Erro ao buscar dispositivos ativos:", error);
     return { error, data: [] };
   }
+  
 }
 
 /**

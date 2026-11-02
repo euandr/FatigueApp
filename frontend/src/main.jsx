@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import Login from "./pages/Login.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
+import DetalheCam from "./pages/detalheCam.jsx";
 import Monitoramento from "./pages/Monitoramento.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
@@ -28,10 +29,18 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "/monitoramento",
+    path: "/Monitoramento",
     element: (
       <App>
         <Monitoramento />
+      </App>
+    ),
+  },
+  {
+    path: "/DetalheCam/:name",
+    element: (
+      <App>
+        <DetalheCam />
       </App>
     ),
   },

@@ -1,154 +1,129 @@
-import { LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import VideoFeed from "@/components/VideoFeed";
-import MetricsPanel from "@/components/MetricsPanel";
-import EventsPanel from "@/components/EventsPanel";
-import ControlPanel from "@/components/ControlPanel";
-import { useFatigueDetection } from "@/hooks/useFatigueDetection";
-import { useDevices } from "@/hooks/useDevices";
-import { supabase } from "@/services/supabase";
+import { Video, Wifi, TriangleAlert, Search, Plus } from "lucide-react";
+import CardResumoMonitoramento from "../components/CardResumoMonitoramento.jsx";
+import CardCamera from "../components/CardCamera.jsx";
+import Sidebar from "../components/Sidebar.jsx";
+import TabelaAlertasMonitoramento from "../components/TabelaAlertasMonitoramento.jsx";
+import "./Monitoramento.css";
 
-//  de onde peguei esse arquivo estava salvo como Index.jsx
+// Dados ilustrativos: nenhuma câmera está conectada nesta versão da tela.
+const cameras = ["CAM_01", "CAM_02", "CAM_03", "CAM_04", "CAM_05", "CAM_06"];
+const alertas = [
+  {
+    id: 1,
+    camera: "CAM_01",
+    evento: "Olhos fechados por tempo prolongado",
+    horario: "10:24:18",
+    duracao: "10 segundos",
+  },
+];
 
-const Monitoramento = () => {
-  const navigate = useNavigate();
-
-  // ✅ PRIMEIRO: Get devices hook
-  const { currentDevice, registerDeviceOnCamera } = useDevices();
-
-  // ✅ SEGUNDO: Use FatigueDetection WITH currentDevice.id
-  const {
-    videoRef,
-    isStreaming,
-    isConnected,
-    isMuted,
-    processedFrame,
-    metrics,
-    events,
-    yawnCount,
-    toggleStreaming,
-    toggleMute,
-    stopStreaming,
-  } = useFatigueDetection({ deviceId: currentDevice?.id });
-
-  // ✅ Handler para iniciar/parar com device pronto
-  const handleStartStop = async () => {
-    // Se está parando, só para
-    if (isStreaming) {
-      toggleStreaming();
-      return;
-    }
-
-    // Se está iniciando e não tem device, registra PRIMEIRO
-    if (!currentDevice) {
-      console.log("📱 Registrando device...");
-      const result = await registerDeviceOnCamera();
-      if (!result.success) {
-        console.error("Falha ao registrar device:", result.error);
-        return;
-      }
-      console.log("✅ Device registrado:", result.device?.id);
-
-      // Inicia streaming COM o deviceId registrado
-      toggleStreaming(result.device?.id);
-    } else {
-      // Se já tem device, usa o ID dele
-      console.log("🎬 Iniciando streaming com device:", currentDevice?.id);
-      toggleStreaming(currentDevice?.id);
-    }
-  };
-
-  const handleLogout = async () => {
-    await stopStreaming();
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
-  const alertActive =
-    metrics.fatigueAlert || metrics.yawnDetected || metrics.excessBlinks;
-
+export default function Monitoramento() {
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 h-screen flex flex-col overflow-auto">
-      {/* Header */}
-      <header className="w-full bg-slate-800/80 backdrop-blur-sm border-b border-slate-700/50 px-4 md:px-6 lg:px-8 py-6">
-        <div className="flex items-center justify-end">
+    <div className="monitoramento flex h-[calc(100dvh/1.25)] min-h-0 overflow-hidden bg-[#0e1925] text-left font-[Arial,Helvetica,sans-serif] text-[#f7f8fc] max-[640px]:flex-col [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-[3px] [&_button:focus-visible]:outline-[#80afff] [&_input:focus-visible]:outline [&_input:focus-visible]:outline-2 [&_input:focus-visible]:outline-offset-[3px] [&_input:focus-visible]:outline-[#80afff]">
+      <Sidebar />
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-[18px] pt-[14px] max-[900px]:px-4 max-[900px]:py-[18px]">
+        <header className="mb-4 flex items-center justify-between gap-4 max-[640px]:flex-wrap">
+          <div>
+            <h1 className="mb-[2px] text-[29px] font-bold leading-[1.15] tracking-[-.4px] max-[640px]:text-[26px]">
+              Monitoramento
+            </h1>
+            <p className="text-[14px] leading-[1.6] text-[#91a2be] max-[640px]:text-[12px]">
+              Visão geral das câmeras e alertas em tempo real
+            </p>
+          </div>
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-emerald-500/50 rounded-lg transition-all duration-200 group"
+            type="button"
+            className="inline-flex items-center justify-center gap-[5px] whitespace-nowrap rounded-lg border-0 bg-[#2366f5] px-[11px] py-[9px] text-[11px] font-bold text-white hover:scale-105 hover:brightness-125 transition-all duration-200"
           >
-            <LogOut className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
-            <span className="text-sm font-semibold text-emerald-400 group-hover:text-emerald-300 transition-colors">
-              Sair
-            </span>
+            <Plus
+              className="h-[15px] w-[15px] stroke-[3] "
+              aria-hidden="true"
+            />
+            Adicionar câmera
           </button>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 p-4 md:p-6 lg:p-8">
-        {/* Left Column - Video Feed */}
-        <div className="lg:col-span-2 space-y-4 md:space-y-6">
-          <VideoFeed
-            ref={videoRef}
-            isConnected={isConnected}
-            isStreaming={isStreaming}
-            processedFrame={processedFrame}
-            alertActive={alertActive}
-            deviceName={currentDevice?.name || "CAM_01"}
+        <section
+          className="mb-[18px] grid grid-cols-3 gap-[10px] max-[640px]:gap-[7px]"
+          aria-label="Resumo do monitoramento"
+        >
+          <CardResumoMonitoramento
+            title="Câmeras cadastradas"
+            value={cameras.length}
+            icon={<Video />}
           />
-
-          {/* Control Panel - Below video on desktop */}
-          <div className="hidden lg:block">
-            <ControlPanel
-              isStreaming={isStreaming}
-              isConnected={isConnected}
-              isMuted={isMuted}
-              onStartStop={handleStartStop}
-              onMuteToggle={toggleMute}
-            />
-          </div>
-        </div>
-
-        {/* Right Column - Metrics & Events */}
-        <div className="space-y-4 md:space-y-6">
-          {/* Control Panel - Top on mobile */}
-          <div className="lg:hidden">
-            <ControlPanel
-              isStreaming={isStreaming}
-              isConnected={isConnected}
-              isMuted={isMuted}
-              onStartStop={handleStartStop}
-              onMuteToggle={toggleMute}
-            />
-          </div>
-
-          <MetricsPanel
-            isStreaming={isStreaming}
-            ear={metrics.ear}
-            mar={metrics.mar}
-            blinks={metrics.blinks}
-            yawns={yawnCount}
-            eyesClosed={metrics.eyesClosed}
-            yawnDetected={metrics.yawnDetected}
-            excessBlinks={metrics.excessBlinks}
+          <CardResumoMonitoramento
+            title="Monitorando"
+            value={0}
+            icon={<Wifi />}
+            backgroundColor="#133632"
+            iconColor="#0cda69"
           />
+          <CardResumoMonitoramento
+            title="Com alerta"
+            value={alertas.length}
+            icon={<TriangleAlert fill="#ff4149" stroke="#332631" />}
+            backgroundColor="#332631"
+            iconColor="#ff4149"
+          />
+        </section>
 
-          <div className="h-[400px]">
-            <EventsPanel events={events} />
+        <section
+          className="mb-[22px] flex flex-wrap items-center gap-[5px] max-[640px]:gap-[10px]"
+          aria-label="Busca e filtros de câmeras"
+        >
+          <label className="flex h-8 w-[251px] items-center gap-[13px] rounded-[6px] border border-[#263747] px-[9px] max-[640px]:w-full">
+            <Search
+              className="h-[17px] w-[17px] shrink-0 text-[#a5bbda]"
+              aria-hidden="true"
+            />
+            <input
+              className="min-w-0 w-full border-0 bg-transparent text-[11px] text-white placeholder:text-[#8295b2]"
+              type="search"
+              placeholder="Buscar câmera..."
+              aria-label="Buscar câmera"
+            />
+          </label>
+          <div
+            className="flex flex-wrap gap-1 [&_button]:rounded-[10px] [&_button]:border [&_button]:border-[#263747] [&_button]:bg-transparent [&_button]:px-[13px] [&_button]:py-[7px] [&_button]:text-[11px] [&_button]:font-semibold [&_button]:text-[#f7f8fc] [&_button[aria-pressed=true]]:border-[#2366f5] [&_button[aria-pressed=true]]:bg-[#2366f5]"
+            role="group"
+            aria-label="Status das câmeras"
+          >
+            <button
+              className="hover:scale-105 transition-transform duration-200"
+              type="button"
+              aria-pressed="false"
+            >
+              Monitorando
+            </button>
+            <button
+              className="hover:scale-105 transition-transform duration-200"
+              type="button"
+              aria-pressed="false"
+            >
+              Desconectadas
+            </button>
+            <button
+              className="hover:scale-105 transition-transform duration-200"
+              type="button"
+              aria-pressed="false"
+            >
+              Com Alerta
+            </button>
           </div>
-        </div>
+        </section>
+
+        <section
+          className="mb-5 grid grid-cols-[repeat(auto-fill,minmax(min(245px,100%),1fr))] gap-[19px] min-[1600px]:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]"
+          aria-label="Câmeras cadastradas"
+        >
+          {cameras.map((name) => (
+            <CardCamera key={name} name={name} />
+          ))}
+        </section>
+
+        <TabelaAlertasMonitoramento alertas={alertas} />
       </main>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-700/50">
-        <div className="flex items-center justify-start py-6 px-4 md:px-6 lg:px-8 text-sm text-slate-500 font-mono">
-          <p>Detecção de Fadiga v1.0</p>
-        </div>
-      </footer>
-      
-      
     </div>
   );
-};
-
-export default Monitoramento;
+}

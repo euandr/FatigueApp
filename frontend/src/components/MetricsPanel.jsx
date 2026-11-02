@@ -72,7 +72,7 @@ const MetricsPanel = ({
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono text-slate-400">
-              Olhos (EAR)
+              Olhos 
             </span>
             <span className={`text-xs font-mono font-bold ${earStatus.color}`}>
               {earStatus.label}
@@ -96,7 +96,7 @@ const MetricsPanel = ({
           className={`p-4 rounded-lg ${marStatus.bg} border border-slate-600/50 transition-all duration-300`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400"> Boca (MAR)</span>
+            <span className="text-xs font-mono text-slate-400"> Boca </span>
             <span className={`text-xs font-mono font-bold ${marStatus.color}`}>
               {marStatus.label}
             </span>
@@ -172,7 +172,7 @@ const MetricsPanel = ({
       </div>
 
       {/* Alert Indicators */}
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         <h3 className="text-xs font-mono text-slate-500 uppercase tracking-wider">
           Status de Alerta
         </h3>
@@ -213,7 +213,7 @@ const MetricsPanel = ({
             </>
           )}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

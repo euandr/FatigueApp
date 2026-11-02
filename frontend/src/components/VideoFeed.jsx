@@ -83,12 +83,12 @@ const VideoFeed = forwardRef(
         {/* Camera info bar */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/90 to-transparent p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <Camera className="w-4 h-4 text-blue-400" />
               <span className="text-sm font-mono text-slate-300">
                 {deviceName}
               </span>
-            </div>
+            </div> */}
             <div className="flex items-center gap-2">
               <div
                 className={`w-2 h-2 rounded-full ${

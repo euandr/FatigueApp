@@ -2,6 +2,10 @@ import { supabase } from "./supabase";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+// Temporário: mude para false para voltar a testar o login em desenvolvimento.
+// Em builds de produção, a autenticação permanece habilitada.
+export const AUTH_DESABILITADA = import.meta.env.DEV && true;
+
 export async function handleCadastro({ nome, email, senha, confirmSenha }) {
   // Validar campos
   if (!nome || !email || !senha || !confirmSenha) {
@@ -36,6 +40,11 @@ export function useAuthRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (AUTH_DESABILITADA) {
+      navigate("/Monitoramento", { replace: true });
+      return;
+    }
+
     // Escutar mudanças de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event) => {
@@ -43,7 +52,7 @@ export function useAuthRedirect() {
         if (event === "SIGNED_IN") {
           // Pequeno delay para garantir que a sessão está completamente configurada
           setTimeout(() => {
-            navigate("/monitoramento");
+            navigate("//Monitoramento");
           }, 100);
         }
       }

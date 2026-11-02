@@ -78,7 +78,7 @@ const ControlPanel = ({
       </div>
 
       {/* Status Info */}
-      <div className="pt-4 border-t border-slate-700/50">
+      {/* <div className="pt-4 border-t border-slate-700/50">
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
             <p className="text-xs font-mono text-slate-500 uppercase">Status</p>
@@ -103,7 +103,7 @@ const ControlPanel = ({
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

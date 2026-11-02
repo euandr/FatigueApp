@@ -1,0 +1,10 @@
+/* Ajustes do documento: os componentes e os layouts usam Tailwind no JSX. */
+html:has(.monitoramento, .detalhe-cam) {
+  zoom: 1.25;
+  overflow: hidden;
+}
+
+body:has(.monitoramento, .detalhe-cam) {
+  margin: 0;
+  overflow: hidden;
+}

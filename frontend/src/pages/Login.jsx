@@ -7,7 +7,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { MdEmail, MdLock } from "react-icons/md";
 import { FcGoogle } from "react-icons/fc";
-import { useAuthRedirect } from "@/services/auth";
+import { AUTH_DESABILITADA, useAuthRedirect } from "@/services/auth";
 import { supabase } from "@/services/supabase";
 
 function Login() {
@@ -22,6 +22,11 @@ function Login() {
 
   async function handleLogin(e) {
     e.preventDefault(); // evita recarregar a página
+    if (AUTH_DESABILITADA) {
+      navigate("/Monitoramento", { replace: true });
+      return;
+    }
+
     setError(""); // limpa erros anteriores
 
     // Validação de campos vazios
@@ -57,6 +62,11 @@ function Login() {
   }
 
   async function handleLoginGoogle() {
+    if (AUTH_DESABILITADA) {
+      navigate("/Monitoramento", { replace: true });
+      return;
+    }
+
     setIsLoadingGoogle(true);
     setError(""); // limpa erros anteriores
     const { error } = await supabase.auth.signInWithOAuth({

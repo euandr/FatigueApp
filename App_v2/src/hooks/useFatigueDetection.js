@@ -1,16 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import alarmSound from "@/assets/alarm-clock.mp3";
-import { createSession, endSession } from "@/services/sessions";
-import { saveEvent } from "@/services/events";
-import { supabase } from "@/services/supabase";
 
-export const useFatigueDetection = ({ deviceId = null } = {}) => {
+export const useFatigueDetection = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
-  const [userId, setUserId] = useState(null);
-  const [currentDeviceId, setCurrentDeviceId] = useState(deviceId);
 
   // Detectar servidor automaticamente
   // - Se em localhost: ws://localhost:8765
@@ -55,7 +49,6 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
   const isMutedRef = useRef(false);
   const reconnectTimeoutRef = useRef(null);
   const reconnectDelayRef = useRef(1000); // Começar com 1 segundo
-  const sessionIdRef = useRef(null); // Ref para sessionId (sincronizado via useEffect)
 
   // Create alarm sound
   useEffect(() => {
@@ -67,33 +60,10 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
     };
   }, []);
 
-  // Get current user ID
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, []);
-
   // Sync isMuted with ref
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
-
-  // Sync sessionId with ref
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
-
-  // Update deviceId when prop changes
-  useEffect(() => {
-    setCurrentDeviceId(deviceId);
-  }, [deviceId]);
 
   const playAlarm = useCallback(() => {
     if (!isMutedRef.current && audioRef.current) {
@@ -103,7 +73,7 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
   }, []);
 
   const addEvent = useCallback(
-    (message, type, metadata = {}) => {
+    (message, type) => {
       const now = Date.now();
       const cooldown = 2000; // 2 seconds cooldown between same event types
 
@@ -126,33 +96,10 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
 
       setEvents((prev) => [event, ...prev].slice(0, 50));
 
-      // Salvar no banco APENAS eventos críticos (que disparam alerta)
+      // Tocar alerta se for evento crítico
       const isCriticalEvent =
         type === "fatigue_alert" || type === "yawn" || type === "excess_blinks";
 
-      if (isCriticalEvent && sessionIdRef.current) {
-        // Construir value com a métrica associada
-        let metricValue = type; // Padrão: tipo técnico
-
-        if (type === "yawn" && metadata.mar !== undefined) {
-          metricValue = `MAR: ${metadata.mar.toFixed(3)}`;
-        } else if (type === "fatigue_alert" && metadata.ear !== undefined) {
-          metricValue = `EAR: ${metadata.ear.toFixed(3)}`;
-        } else if (
-          type === "excess_blinks" &&
-          metadata.blinks_count !== undefined
-        ) {
-          metricValue = `Blinks: ${metadata.blinks_count}`;
-        }
-
-        console.log(`💾 Salvando: ${message} → ${metricValue}`);
-        // event_type = descrição, value = métrica
-        saveEvent(sessionIdRef.current, message, metricValue).catch((error) => {
-          console.error("❌ Erro ao salvar evento no BD:", error);
-        });
-      }
-
-      // Tocar alerta se for evento crítico
       if (isCriticalEvent) {
         playAlarm();
       }
@@ -233,20 +180,18 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
               addEvent(
                 "Alerta de fadiga detectado - olhos fechados por muito tempo",
                 "fatigue_alert",
-                { ear: data.ear, duration: "contínuo" },
               );
             }
 
             if (data.yawnDetected) {
               setYawnCount((prev) => prev + 1);
-              addEvent("Bocejo detectado", "yawn", { mar: data.mar });
+              addEvent("Bocejo detectado", "yawn");
             }
 
             if (data.excessBlinks) {
               addEvent(
                 `Excesso de piscadas detectado (${data.blinks} em 30 frames)`,
                 "excess_blinks",
-                { blinks_count: data.blinks, threshold: 30 },
               );
             }
           } catch (e) {
@@ -263,82 +208,55 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
     [addEvent, scheduleReconnect, isStreaming],
   );
 
-  const startStreaming = useCallback(
-    async (overrideDeviceId = null) => {
-      try {
-        // Criar uma nova sessão ao iniciar a detecção
-        if (!userId) {
-          console.error("ID do usuário indisponível");
-          return;
-        }
+  const startStreaming = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: "user" },
+        audio: false,
+      });
 
-        const deviceIdToUse = overrideDeviceId || currentDeviceId;
+      streamRef.current = stream;
 
-        if (!deviceIdToUse) {
-          console.error("ID do dispositivo indisponível");
-          return;
-        }
-
-        const session = await createSession(userId, deviceIdToUse);
-        if (session) {
-          setSessionId(session.id);
-          console.log(
-            "Sessão criada:",
-            session.id,
-            "com dispositivo:",
-            deviceIdToUse,
-          );
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" },
-          audio: false,
-        });
-
-        streamRef.current = stream;
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        // Create canvas for capturing frames
-        canvasRef.current = document.createElement("canvas");
-        canvasRef.current.width = 640;
-        canvasRef.current.height = 480;
-
-        connectWebSocket(true);
-
-        // Start sending frames
-        intervalRef.current = window.setInterval(() => {
-          if (
-            videoRef.current &&
-            canvasRef.current &&
-            wsRef.current?.readyState === WebSocket.OPEN
-          ) {
-            const ctx = canvasRef.current.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(videoRef.current, 0, 0, 640, 480);
-              const frameData = canvasRef.current.toDataURL("image/jpeg", 0.7);
-              const base64Data = frameData.split(",")[1];
-              wsRef.current.send(JSON.stringify({ frame: base64Data }));
-            }
-          }
-        }, 100); // ~10 FPS
-
-        // Reset yawn count every minute (60000 ms)
-        yawnResetIntervalRef.current = window.setInterval(() => {
-          setYawnCount(0);
-        }, 60000);
-
-        setIsStreaming(true);
-      } catch (error) {
-        console.error("Erro ao iniciar transmissão:", error);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
       }
-    },
-    [connectWebSocket, userId],
-  );
 
-  const stopStreaming = useCallback(async () => {
+      // Create canvas for capturing frames
+      canvasRef.current = document.createElement("canvas");
+      canvasRef.current.width = 640;
+      canvasRef.current.height = 480;
+
+      connectWebSocket(true);
+
+      // Start sending frames
+      intervalRef.current = window.setInterval(() => {
+        if (
+          videoRef.current &&
+          canvasRef.current &&
+          wsRef.current?.readyState === WebSocket.OPEN
+        ) {
+          const ctx = canvasRef.current.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(videoRef.current, 0, 0, 640, 480);
+            const frameData = canvasRef.current.toDataURL("image/jpeg", 0.7);
+            const base64Data = frameData.split(",")[1];
+            wsRef.current.send(JSON.stringify({ frame: base64Data }));
+          }
+        }
+      }, 100); // ~10 FPS
+
+      // Reset yawn count every minute (60000 ms)
+      yawnResetIntervalRef.current = window.setInterval(() => {
+        setYawnCount(0);
+      }, 60000);
+
+      setIsStreaming(true);
+    } catch (error) {
+      console.error("Erro ao iniciar transmissão:", error);
+    }
+  }, [connectWebSocket]);
+
+  const stopStreaming = useCallback(() => {
     // Cancelar tentativas de reconexão
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -370,17 +288,6 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
       videoRef.current.srcObject = null;
     }
 
-    // Finalizar a sessão ao interromper a detecção
-    if (sessionId) {
-      try {
-        await endSession(sessionId);
-        console.log("Sessão finalizada:", sessionId);
-        setSessionId(null);
-      } catch (error) {
-        console.error("Erro ao finalizar sessão:", error);
-      }
-    }
-
     // Reset metrics and yawn count when stopping stream
     setMetrics({
       ear: 0,
@@ -397,18 +304,15 @@ export const useFatigueDetection = ({ deviceId = null } = {}) => {
     setIsStreaming(false);
     setIsConnected(false);
     setProcessedFrame(null);
-  }, [sessionId]);
+  }, []);
 
-  const toggleStreaming = useCallback(
-    (overrideDeviceId = null) => {
-      if (isStreaming) {
-        stopStreaming();
-      } else {
-        startStreaming(overrideDeviceId);
-      }
-    },
-    [isStreaming, startStreaming, stopStreaming],
-  );
+  const toggleStreaming = useCallback(() => {
+    if (isStreaming) {
+      stopStreaming();
+    } else {
+      startStreaming();
+    }
+  }, [isStreaming, startStreaming, stopStreaming]);
 
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => !prev);

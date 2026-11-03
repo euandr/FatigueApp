@@ -6,7 +6,6 @@ import MetricsPanel from "@/components/MetricsPanel";
 import EventsPanel from "@/components/EventsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import { useFatigueDetection } from "@/hooks/useFatigueDetection";
-import { useDevices } from "@/hooks/useDevices";
 import { supabase } from "@/services/supabase";
 
 //  de onde peguei esse arquivo estava salvo como Index.jsx
@@ -15,10 +14,6 @@ const Monitoramento = () => {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState("");
 
-  // ✅ PRIMEIRO: Get devices hook
-  const { currentDevice, registerDeviceOnCamera } = useDevices();
-
-  // ✅ SEGUNDO: Use FatigueDetection WITH currentDevice.id
   const {
     videoRef,
     isStreaming,
@@ -30,33 +25,11 @@ const Monitoramento = () => {
     yawnCount,
     toggleStreaming,
     toggleMute,
-  } = useFatigueDetection({ deviceId: currentDevice?.id });
+  } = useFatigueDetection();
 
-  // ✅ Handler para iniciar/parar com device pronto
-  const handleStartStop = async () => {
-    // Se está parando, só para
-    if (isStreaming) {
-      toggleStreaming();
-      return;
-    }
-
-    // Se está iniciando e não tem device, registra PRIMEIRO
-    if (!currentDevice) {
-      console.log("📱 Registrando device...");
-      const result = await registerDeviceOnCamera();
-      if (!result.success) {
-        console.error("Falha ao registrar device:", result.error);
-        return;
-      }
-      console.log("✅ Device registrado:", result.device?.id);
-
-      // Inicia streaming COM o deviceId registrado
-      toggleStreaming(result.device?.id);
-    } else {
-      // Se já tem device, usa o ID dele
-      console.log("🎬 Iniciando streaming com device:", currentDevice?.id);
-      toggleStreaming(currentDevice?.id);
-    }
+  // Inicia ou para a detecção (sem persistência no banco)
+  const handleStartStop = () => {
+    toggleStreaming();
   };
 
   const handleLogout = async () => {
@@ -94,7 +67,7 @@ const Monitoramento = () => {
             isStreaming={isStreaming}
             processedFrame={processedFrame}
             alertActive={alertActive}
-            deviceName={currentDevice?.name || "CAM_01"}
+            deviceName="CAM_01"
           />
 
           {/* Control Panel - Below video on desktop */}

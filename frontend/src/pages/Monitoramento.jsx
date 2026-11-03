@@ -5,18 +5,10 @@ import MetricsPanel from "@/components/MetricsPanel";
 import EventsPanel from "@/components/EventsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import { useFatigueDetection } from "@/hooks/useFatigueDetection";
-import { useDevices } from "@/hooks/useDevices";
 import { supabase } from "@/services/supabase";
-
-//  de onde peguei esse arquivo estava salvo como Index.jsx
 
 const Monitoramento = () => {
   const navigate = useNavigate();
-
-  // ✅ PRIMEIRO: Get devices hook
-  const { currentDevice, registerDeviceOnCamera } = useDevices();
-
-  // ✅ SEGUNDO: Use FatigueDetection WITH currentDevice.id
   const {
     videoRef,
     isStreaming,
@@ -29,37 +21,18 @@ const Monitoramento = () => {
     toggleStreaming,
     toggleMute,
     stopStreaming,
-  } = useFatigueDetection({ deviceId: currentDevice?.id });
+  } = useFatigueDetection();
 
-  // ✅ Handler para iniciar/parar com device pronto
-  const handleStartStop = async () => {
-    // Se está parando, só para
+  const handleStartStop = () => {
     if (isStreaming) {
-      toggleStreaming();
+      stopStreaming();
       return;
     }
-
-    // Se está iniciando e não tem device, registra PRIMEIRO
-    if (!currentDevice) {
-      console.log("📱 Registrando device...");
-      const result = await registerDeviceOnCamera();
-      if (!result.success) {
-        console.error("Falha ao registrar device:", result.error);
-        return;
-      }
-      console.log("✅ Device registrado:", result.device?.id);
-
-      // Inicia streaming COM o deviceId registrado
-      toggleStreaming(result.device?.id);
-    } else {
-      // Se já tem device, usa o ID dele
-      console.log("🎬 Iniciando streaming com device:", currentDevice?.id);
-      toggleStreaming(currentDevice?.id);
-    }
+    toggleStreaming();
   };
 
   const handleLogout = async () => {
-    await stopStreaming();
+    stopStreaming();
     await supabase.auth.signOut();
     navigate("/");
   };
@@ -69,7 +42,6 @@ const Monitoramento = () => {
 
   return (
     <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 h-screen flex flex-col overflow-auto">
-      {/* Header */}
       <header className="w-full bg-slate-800/80 backdrop-blur-sm border-b border-slate-700/50 px-4 md:px-6 lg:px-8 py-6">
         <div className="flex items-center justify-end">
           <button
@@ -84,7 +56,6 @@ const Monitoramento = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 p-4 md:p-6 lg:p-8">
         {/* Left Column - Video Feed */}
         <div className="lg:col-span-2 space-y-4 md:space-y-6">
@@ -94,7 +65,7 @@ const Monitoramento = () => {
             isStreaming={isStreaming}
             processedFrame={processedFrame}
             alertActive={alertActive}
-            deviceName={currentDevice?.name || "CAM_01"}
+            deviceName="CAM_01"
           />
 
           {/* Control Panel - Below video on desktop */}
@@ -139,14 +110,11 @@ const Monitoramento = () => {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="mt-auto border-t border-slate-700/50">
         <div className="flex items-center justify-start py-6 px-4 md:px-6 lg:px-8 text-sm text-slate-500 font-mono">
           <p>Detecção de Fadiga v1.0</p>
         </div>
       </footer>
-      
-      
     </div>
   );
 };

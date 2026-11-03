@@ -1,0 +1,439 @@
+# Como estava o backend (FastAPI)
+
+> **Snapshot do estado anterior à refatoração.**
+> Este documento descreve o backend em `backend/app` **antes** da remoção do
+> Supabase Auth e da persistência no banco. O objetivo é servir de referência
+> para quem for reintroduzir autenticação, sessões e gravação de eventos.
+
+---
+
+## 1. Visão geral
+
+O backend era uma API **FastAPI** executada por **Uvicorn**, com dois canais:
+
+| Canal | Rota | Papel |
+| --- | --- | --- |
+| HTTP/REST | `/api/*` | CRUD de câmeras, sessões e consulta de eventos |
+| WebSocket | `/ws` | Receber frames da webcam e devolver o resultado da detecção |
+| HTTP | `/health` | Liveness simples (`{"status": "ok"}`) |
+
+A autenticação e o banco ficavam no **Supabase**:
+
+- **Auth**: o frontend obtinha um JWT via Supabase Auth e o enviava como
+  `Authorization: Bearer <token>` nas rotas REST.
+- **Banco**: o backend acessava o **PostgREST** (`/rest/v1/...`) usando
+  `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. Não havia ORM nem SDK do
+  Supabase; o acesso era feito com `httpx.AsyncClient`.
+
+O app era criado pela factory `create_app()` em `main.py` e exportado como
+`app = create_app()`.
+
+### Premissa importante
+
+O estado de monitoramento vivia **na memória do processo**. Por isso o backend
+assumia **um único processo Uvicorn** (sem múltiplos workers), pois
+`Monitoring.monitors` não era compartilhado entre processos.
+
+---
+
+## 2. Estrutura de arquivos
+
+```
+backend/
+├── .env                     # SUPABASE_URL, SERVICE_ROLE_KEY, CORS_ORIGINS...
+├── .env.example
+├── requirements.txt
+└── app/
+    ├── main.py              # create_app, /health, /ws, lifespan
+    ├── config.py            # Config via variáveis de ambiente
+    ├── database.py          # httpx -> PostgREST + validação de JWT
+    ├── auth.py              # dependência HTTPBearer -> db.user(token)
+    ├── routes.py            # rotas /api (devices, sessions, events)
+    ├── schemas.py           # Pydantic: DeviceCreate, DeviceUpdate, SessionCreate
+    ├── monitoring.py        # Monitor (por sessão) + Monitoring (gerenciador)
+    └── detector.py          # MediaPipe: EAR/MAR, piscadas, bocejo, fadiga
+```
+
+---
+
+## 3. Inicialização e encerramento (`lifespan`)
+
+Ao subir a aplicação, `main.create_app()` registrava um `lifespan` que fazia:
+
+1. `config.validate()` — exigia `SUPABASE_URL` e
+   `SUPABASE_SERVICE_ROLE_KEY`; validava `EVENT_SCHEMA` (`numeric` ou
+   `legacy`) e `RECONNECT_SECONDS` (> 0).
+2. Criava `Database(config)` (cliente `httpx` com a service role).
+3. Criava `Monitoring(db, config)` e publicava em `app.state.db` e
+   `app.state.monitoring`.
+4. `await db.check_schema()` — fazia `GET` com `select=...&limit=0` em
+   `devices`, `sessions` e `events` para falhar cedo se o esquema estivesse
+   errado. **Não havia DDL/migração automática.** Se o banco estivesse
+   indisponível ou com coluna faltando, o app **não subia**.
+5. `await manager.reconcile()` — fechava no banco todas as sessões que
+   ficaram com `ended_at = null` de uma execução anterior
+   (`PATCH sessions SET ended_at = agora WHERE ended_at IS NULL`). Como havia
+   apenas um processo, isso evitava sessões "fantasma".
+6. Iniciava a task `manager.sweep()`.
+
+No desligamento:
+
+1. Cancelava o `sweep`.
+2. Para cada sessão em memória, chamava `finish_locked()` (grava `ended_at`,
+   fecha o WebSocket e libera o detector).
+3. `await db.close()`.
+
+O `sweep` rodava a cada **1 segundo** e encerrava sessões cujo último frame
+tinha mais de `RECONNECT_SECONDS` (padrão **30 s**).
+
+---
+
+## 4. Autenticação
+
+`auth.py` definia:
+
+```python
+bearer = HTTPBearer(auto_error=False)
+
+async def authenticated_user(request, credentials=Depends(bearer)):
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(401, "Informe o token Bearer do Supabase")
+    return await request.app.state.db.user(credentials.credentials)
+```
+
+`Database.user(token)` chamava `GET /auth/v1/user` no Supabase Auth com o token
+do usuário. O Supabase verificava assinatura, expiração e identidade.
+Respostas:
+
+- `401`/`403` do Supabase → `HTTPException(401, "Token inválido ou expirado")`
+- erro de rede → `503`
+- outros erros → `503`
+- sem `id` no corpo → `401`
+
+Todas as rotas de `/api` usavam essa dependência. O token **nunca** era
+decodificado localmente.
+
+---
+
+## 5. Rotas REST (`routes.py`)
+
+Prefixo `/api`, todas autenticadas:
+
+| Método | Rota | Comportamento |
+| --- | --- | --- |
+| `GET` | `/api/devices` | Lista câmeras (`id,name,created_at,is_active`), filtro opcional `?active=true/false`, ordenado por `created_at.desc`. |
+| `POST` | `/api/devices` | Cria câmera com nome (padrão `CAM_01`). Se já existir câmera **ativa** com o mesmo nome, devolve a existente (idempotência simples). |
+| `GET` | `/api/devices/{id}` | Busca câmera; `404` se não existir. |
+| `PATCH` | `/api/devices/{id}` | Atualiza `name` e/ou `is_active`. Se `is_active=false`, encerra todas as sessões abertas daquela câmera. |
+| `POST` | `/api/sessions` | Abre sessão para o usuário autenticado. Valida câmera ativa e impede duas sessões abertas na mesma câmera. Cria `Monitor` em memória. |
+| `GET` | `/api/sessions` | Lista sessões **do usuário**, `?active=true` filtra `ended_at is null`. |
+| `POST` | `/api/sessions/{id}/end` | Encerra a sessão (valida dono). |
+| `GET` | `/api/sessions/{id}/events` | Lista eventos da sessão (valida dono), `created_at.desc`. |
+
+Escritas no banco nesse fluxo:
+
+- `devices`: `POST` e `PATCH`
+- `sessions`: `POST` (abertura) e `PATCH` (encerramento)
+- `events`: somente leitura por aqui (a gravação vinha do WebSocket)
+
+O `PATCH` de câmera usava `manager.lock` para não competir com o processamento
+de frames.
+
+---
+
+## 6. Handshake do WebSocket
+
+O navegador não permite enviar `Authorization` no handshake de WebSocket.
+Por isso o token ia na **primeira mensagem**:
+
+```json
+{ "type": "auth", "token": "<jwt>", "session_id": "<uuid>" }
+```
+
+Sequência em `main.websocket`:
+
+1. Se houvesse header `Origin` e ele não estivesse em `CORS_ORIGINS`, fechava
+   com código `1008`.
+2. `await socket.accept()`.
+3. Esperava a mensagem de auth por até **10 s**
+   (`asyncio.wait_for(..., timeout=10)`).
+4. Validava o formato e chamava `db.user(token)` (uma ida ao Supabase Auth).
+5. Convertia `session_id` para `UUID`.
+6. Sob `manager.lock`:
+   - `owned_session(session_id, user_id)` — a sessão precisa existir e
+     pertencer ao usuário (`404` caso contrário);
+   - a sessão não podia estar encerrada (`409`);
+   - o `Monitor` precisava existir em memória (`409`);
+   - a sessão não podia já ter outro socket conectado (`409`);
+   - a câmera precisava estar ativa (`409`);
+   - associava `monitor.socket = socket` e atualizava `last_seen`.
+7. Enviava `{"type": "ready", "session_id": "..."}`.
+
+Durante o streaming, o backend **revalidava**:
+
+- **a cada 30 s**: `db.user(token)` de novo (token expirado/revogado derruba a
+  conexão);
+- **a cada 5 s**: `manager.device(device_id)` para ver se a câmera foi
+  desabilitada em outro lugar. Se sim, a sessão era encerrada.
+
+O `sweep` também encerrava a sessão se ficasse mais de `RECONNECT_SECONDS` sem
+frames. O frontend reconectava com backoff e tratava os códigos de fechamento:
+
+- `1000` → encerramento normal (não reconecta)
+- `1008` → sessão/câmera inválida (não reconecta)
+- `1012` → token expirado, reconecta com token novo
+- `1013` → indisponibilidade temporária, reconecta
+- `1011` → erro interno
+
+---
+
+## 7. Recebimento dos dados
+
+Depois do `ready`, o cliente enviava um JSON por frame:
+
+```json
+{ "frame": "<jpeg em base64, sem o prefixo data:image/jpeg;base64,>" }
+```
+
+Validações no loop:
+
+- precisa ser um `dict` com `frame` do tipo `str`;
+- o base64 não podia passar de **2.000.000 caracteres** (~2 MB);
+- cada `receive_json()` tinha timeout de `RECONNECT_SECONDS` (30 s);
+- `monitor.last_seen` era atualizado a cada frame.
+
+O frontend capturava a webcam em **640×480**, desenhava num canvas e enviava
+JPEG qualidade `0.7` a cada **100 ms** (~10 FPS). Havia controle de
+*backpressure*: o cliente só enviava o próximo frame depois de receber a
+resposta do anterior (`pendingFrame`).
+
+O processamento era **estritamente sequencial por conexão**: receber →
+validar → processar → persistir → responder.
+
+---
+
+## 8. Análise (detecção)
+
+O CPU-bound rodava fora do event loop:
+
+```python
+result = await asyncio.get_running_loop().run_in_executor(
+    monitor.executor, monitor.process, data["frame"]
+)
+```
+
+Cada `Monitor` tinha um `ThreadPoolExecutor(max_workers=1)`, porque o
+MediaPipe precisa ser criado e usado sempre na mesma thread.
+
+`Monitor.process`:
+
+1. `base64.b64decode(..., validate=True)` → `ValueError` se inválido.
+2. `cv2.imdecode(..., cv2.IMREAD_COLOR)` → `ValueError("Imagem inválida")` se
+   não decodificar.
+3. Cria o `Detector` na primeira chamada (lazy).
+4. `Detector.process_frame(frame)`:
+   - redimensiona para largura **640** mantendo proporção;
+   - BGR → RGB;
+   - `mediapipe.solutions.face_mesh.FaceMesh` (1 rosto, refinamento de
+     landmarks, confianças 0.5);
+   - landmarks dos olhos (`LEFT_EYE_IDX`, `RIGHT_EYE_IDX`) e boca (`MOUTH_IDX`);
+   - **EAR** (Eye Aspect Ratio) por olho e média;
+   - **MAR** (Mouth Aspect Ratio);
+   - histórico de EAR em janela de **30 frames** para contar piscadas
+     (`>0.2` seguido de `<0.2`);
+   - olhos fechados: `ear < 0.2`; `fatigueAlert` após **30 frames
+     consecutivos** fechados;
+   - `totalBlinks` incrementa a cada **3 frames** com olhos fechados;
+   - `excessBlinks`: **5 ou mais** piscadas na janela de 30;
+   - `yawnDetected`: `mar > 0.6`;
+   - reencoda o frame em JPEG qualidade **70** e devolve em base64.
+
+Formato do resultado:
+
+```json
+{
+  "ear": 0.28,
+  "mar": 0.21,
+  "blinks": 1,
+  "totalBlinks": 12,
+  "eyesClosed": false,
+  "yawnDetected": false,
+  "excessBlinks": false,
+  "fatigueAlert": false,
+  "frame": "<jpeg base64>"
+}
+```
+
+Observação: o frame devolvido era o mesmo recebido (apenas redimensionado e
+recomprimido); **não havia desenho de landmarks ou overlays**.
+
+---
+
+## 9. Envio para o banco
+
+A gravação principal acontecia **durante o streaming**, em
+`Monitoring.persist_alerts(monitor, result)`, chamada logo após a detecção e
+**antes** de responder ao frontend.
+
+Ela avaliava três alertas:
+
+| Flag | `event_type` gravado | Métrica (`metadata.metric`) |
+| --- | --- | --- |
+| `yawnDetected` | `Bocejo detectado` | `MAR` |
+| `excessBlinks` | `Excesso de piscadas detectado (N em 30 frames)` | `blinks` |
+| `fatigueAlert` | `Alerta de fadiga detectado - olhos fechados por muito tempo` | `EAR` |
+
+Regra de gravação: **borda de subida**. Só inseria quando o alerta passava de
+inativo para ativo (`active and not monitor.alerts.get(flag)`). Enquanto o
+alerta continuasse ativo, não gravava de novo. Ao voltar a inativo, apenas
+atualizava o estado em memória; **não gravava o fim do evento**.
+
+Cada evento era um `POST /rest/v1/events` com:
+
+```json
+{
+  "id": "<uuid4>",
+  "session_id": "<uuid>",
+  "event_type": "Bocejo detectado",
+  "value": 0.72,
+  "created_at": "<ISO-8601 UTC>",
+  "metadata": { "metric": "MAR" }
+}
+```
+
+Com `EVENT_SCHEMA=legacy`, `metadata` era omitido e `value` virava texto
+(`"MAR: 0.720"`, `"Blinks: 6"`).
+
+Outras escritas no banco (fora do streaming):
+
+- `POST /api/devices` e `PATCH /api/devices/{id}`;
+- `POST /api/sessions` (abertura, `started_at`);
+- `PATCH /api/sessions` com `ended_at` ao encerrar (rota, câmera desabilitada,
+  sweep ou shutdown);
+- `reconcile()` no boot (fecha sessões órfãs).
+
+`check_schema()` fazia apenas leituras.
+
+---
+
+## 10. O backend ficava aguardando resposta?
+
+**Sim.** O laço era totalmente sequencial e cada frame esperava o banco:
+
+```
+receive_json
+  └─ lock
+      ├─ valida token (a cada 30 s)
+      ├─ valida câmera (a cada 5 s)
+      ├─ run_in_executor -> MediaPipe (CPU)
+      ├─ persist_alerts -> POST events (await httpx, timeout 15 s)
+      └─ unlock
+  └─ send_json(result)
+```
+
+Consequências:
+
+- A latência do Supabase entrava no tempo de resposta de cada frame.
+- O `manager.lock` serializava **todas as sessões do processo** durante
+  detecção + persistência. Uma câmera lenta atrasava as demais.
+- Falha ao persistir era capturada (`HTTPException`): o backend logava,
+  enviava `{"type": "error", "message": "Falha ao salvar evento no banco"}`,
+  mas **ainda enviava o resultado** da detecção.
+- Timeout/indisponibilidade do banco virava `HTTPException(503)` em
+  `Database.query`; a resposta ao frame podia atrasar até o timeout de 15 s do
+  `httpx`.
+- No boot, `check_schema()` e `reconcile()` bloqueavam a subida do app.
+- O loop de recebimento tinha timeout de 30 s; sem frame, a sessão era
+  encerrada e o socket fechado.
+
+---
+
+## 11. Retorno para o frontend
+
+Mensagens possíveis no WebSocket:
+
+1. **`ready`** — handshake concluído:
+   ```json
+   { "type": "ready", "session_id": "<uuid>" }
+   ```
+2. **resultado do frame** — JSON com as métricas + `frame` em base64
+   (descrito na seção 8).
+3. **`error`** — erro de validação/auth/persistência:
+   ```json
+   { "type": "error", "message": "..." }
+   ```
+   Em erros fatais, o socket era fechado em seguida (`1008`, `1012`, `1013`
+   ou `1011`).
+
+No frontend (`useFatigueDetection.js`):
+
+- `type: "ready"` → marca conectado e libera o envio de frames.
+- resultado → atualiza `metrics`, troca o frame processado e dispara eventos
+  locais (som + lista) para fadiga, bocejo e excesso de piscadas.
+- o próximo frame só era enviado após a resposta anterior; ou seja, **cada
+  resposta funcionava como ACK implícito**.
+- a sessão era criada via REST **antes** de abrir o WebSocket
+  (`createSession`) e encerrada via REST em `stopStreaming`.
+
+Não havia mensagem de confirmação de gravação no banco nem envio de eventos
+persistidos de volta pelo socket. A lista de eventos do painel era montada
+localmente no cliente; o histórico vinha de `GET /api/sessions/{id}/events`.
+
+---
+
+## 12. Configuração (`.env`)
+
+| Variável | Padrão | Uso |
+| --- | --- | --- |
+| `SUPABASE_URL` | — (obrigatória) | Base do PostgREST e do Auth |
+| `SUPABASE_SERVICE_ROLE_KEY` | — (obrigatória) | Chave privada usada pelo backend |
+| `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | CORS HTTP e validação de `Origin` no WebSocket |
+| `EVENT_SCHEMA` | `numeric` | Formato de `events.value`/`metadata` |
+| `RECONNECT_SECONDS` | `30` | Timeout de frame e tolerância do sweep |
+
+Dependências principais: `fastapi`, `uvicorn[standard]`, `httpx`,
+`python-dotenv`, `mediapipe`, `numpy`, `opencv-contrib-python`, `scipy`.
+
+---
+
+## 13. Limitações e pontos de atenção do desenho antigo
+
+- **Um único processo**: estado em memória; múltiplos workers quebrariam
+  sessões, locks e sweep.
+- **Acoplamento forte com Supabase**: auth, schema e disponibilidade do banco
+  afetavam diretamente o streaming.
+- **Caminho crítico por frame**: detecção + rede + banco antes de responder.
+- **Lock global**: serializava sessões diferentes no mesmo processo.
+- **Sem buffer/fila**: o cliente precisava esperar a resposta para enviar o
+  próximo frame; FPS limitado pela latência total.
+- **Eventos só na borda de subida**: não havia registro de duração nem de fim
+  do alerta.
+- **Sem migração automática**: esquema incompatível derrubava o boot.
+- **MediaPipe é CPU-bound**: concorrência real dependia de mais processos ou
+  máquinas, o que conflitava com o estado em memória.
+
+---
+
+## 14. O que mudou na refatoração
+
+O código em `backend/app` foi reduzido ao núcleo de detecção:
+
+- **removidos**: `auth.py`, `database.py`, `routes.py`, `schemas.py`,
+  dependência de `httpx`/Supabase, validação de JWT, CRUD de câmeras/sessões,
+  gravação de `events`, `check_schema`, `reconcile` e `sweep`;
+- **mantidos**: `main.py`, `config.py`, `monitoring.py`, `detector.py`;
+- `/ws` agora:
+  1. aceita a conexão sem autenticação;
+  2. envia `{"type": "ready"}` imediatamente;
+  3. recebe `{"frame": "<base64>"}`;
+  4. responde com o resultado da detecção;
+  5. ignora mensagens de controle antigas (`{"type": "auth", ...}`) e
+     responde `pong` a `{"type": "ping"}`;
+  6. isola detector/executor por conexão e libera tudo ao desconectar;
+- **sem sessão, sem banco e sem espera por persistência**: o tempo de resposta
+  passa a ser basicamente decodificação + MediaPipe + reencode.
+
+O frontend precisa ser ajustado para não criar/encerrar sessão via REST nem
+enviar o token; basta abrir `/ws`, aguardar `ready` e enviar frames. A
+autenticação e a gravação no banco ficam a cargo de quem consumir esse
+resultado.

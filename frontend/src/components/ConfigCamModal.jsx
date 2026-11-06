@@ -62,7 +62,7 @@ export default function AddCamModal({ onClose, mode }) {
             Cancelar
           </button>
           <button onClick={onClose} className="flex bg-[#3259B9] rounded-sm px-4 py-1 items-center gap-2 hover:scale-105 transition-transform duration-200">
-            {mode=="add"?(<><Plus size={16}/> "Adicionar câmera"</>):"Salvar"}
+            {mode=="add"?(<><Plus size={16}/> Adicionar câmera</>):"Salvar"}
           </button>
         </div>
       </div>

@@ -36,7 +36,7 @@ export default function Sidebar() {
         <hr className="mb-[16px] border-0 border-t border-[#203040] max-[640px]:hidden " />
         <button
           type="button"
-          className=" hover:bg-red-600 flex w-full items-center gap-[10px] rounded-[12px] border-0 bg-transparent px-[17px] py-[11px] text-left text-[17px] font-semibold text-[#f7f8fc] [&_svg]:h-[23px] [&_svg]:w-[23px] [&_svg]:shrink-0 [&_svg]:stroke-[1.5] max-[640px]:p-0 max-[640px]:text-[13px]"
+          className="  hover:bg-red-500/10 transition-colors duration-300 flex w-full items-center gap-[10px] rounded-[12px] border-0 bg-transparent px-[17px] py-[11px] text-left text-[17px] font-semibold text-[#f7f8fc] [&_svg]:h-[23px] [&_svg]:w-[23px] [&_svg]:shrink-0 [&_svg]:stroke-[1.5] max-[640px]:p-0 max-[640px]:text-[13px]"
         >
           <LogOut aria-hidden="true" />
           Sair

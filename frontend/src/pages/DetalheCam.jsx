@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import MetricsPanel from "@/components/MetricsPanel";
 import Sidebar from "@/components/Sidebar";
 import ControlPanel from "@/components/ControlPanel";
+import ConfigCamModal from "@/components/ConfigCamModal";
 import { useFatigueDetection } from "@/hooks/useFatigueDetection";
 import { useDevices } from "@/hooks/useDevices";
 import "./Monitoramento.css";
 import CardResumoMonitoramento from "@/components/CardResumoMonitoramento";
 import { useParams } from "react-router-dom";
-
+import { useState } from "react";
 import {
   ArrowLeft,
   Video,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 
 const DetalheCam = () => {
+  const [modalAberto, setModalAberto] = useState(false);
   const navigate = useNavigate();
   // ✅ PRIMEIRO: Get devices hook
   const { currentDevice, registerDeviceOnCamera } = useDevices();
@@ -170,7 +172,10 @@ const DetalheCam = () => {
               </span>
             </div>
           </div>
-          <button className="flex text-[#A4C5DD] gap-[10px] border border-solid rounded-lg border-[#51607A] p-[10px] text-[14px]  bg-[#162434]">
+          <button
+            onClick={() => setModalAberto(true)}
+            className="flex text-[#A4C5DD] gap-[10px] border border-solid rounded-lg border-[#51607A] p-[10px] text-[14px]  bg-[#162434] hover:scale-105 transition-transform duration-200"
+          >
             <SquarePen size={20} /> Editar Câmera
           </button>
         </header>
@@ -178,7 +183,7 @@ const DetalheCam = () => {
         {/* Main Content */}
         <main className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 pt-2 px-4 md:pt-2 md:px-6 lg:pt-2 lg:px-8">
           {/* Left Column - Video Feed */}
-          <div className="lg:col-span-2 space-y-4 md:space-y-6">
+          <div className="lg:col-span-2 lg:flex lg:flex-col">
             <VideoFeed
               ref={videoRef}
               isConnected={isConnected}
@@ -201,7 +206,7 @@ const DetalheCam = () => {
           </div>
 
           {/* Right Column - Metrics & Events */}
-          <div className="flex flex-col gap-4 md:gap-6">
+          <div className="flex flex-col gap-3">
             {/* Control Panel - Top on mobile */}
 
             <MetricsPanel
@@ -314,6 +319,9 @@ const DetalheCam = () => {
           </section>
         </main>
       </div>
+      {modalAberto && (
+        <ConfigCamModal mode="edit" onClose={() => setModalAberto(false)} />
+      )}
     </div>
   );
 };

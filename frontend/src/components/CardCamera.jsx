@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 export default function CardCamera({
   name = "CAM_01",
   status = "Desconectada",
+  setModalAberto,
+  setMode,
 }) {
   const [modalSettings, setModalSettings] = useState(false);
   const navigate = useNavigate();
@@ -55,7 +57,11 @@ export default function CardCamera({
           <button className="text-[#ff0000] transition-transform duration-200 hover:scale-105">
             <Power size={18} /> Desconectar
           </button>
-          <button className="transition-transform duration-200 hover:scale-105">
+          <button 
+            onClick={() => {
+              setModalAberto(true)
+              setMode("edit")
+            }} className="transition-transform duration-200 hover:scale-105">
             <SquarePen size={18} /> Editar câmera
           </button>
           <button className="text-[#ff0000] transition-transform duration-200 hover:scale-105">

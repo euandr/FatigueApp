@@ -17,7 +17,7 @@ const ControlPanel = ({
   onMuteToggle,
 }) => {
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 space-y-4">
+    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-3">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
           <Settings className="w-5 h-5 text-slate-400" />

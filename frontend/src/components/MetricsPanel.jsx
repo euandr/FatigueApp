@@ -50,7 +50,7 @@ const MetricsPanel = ({
   const marStatus = getMarStatus();
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 space-y-6">
+    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-3">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
           <Eye className="w-5 h-5 text-blue-400" />
@@ -65,10 +65,10 @@ const MetricsPanel = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-2">
         {/* EAR Metric */}
         <div
-          className={`p-4 rounded-lg ${earStatus.bg} border border-slate-600/50 transition-all duration-300`}
+          className={`p-2 rounded-lg ${earStatus.bg} border border-slate-600/50 transition-all duration-300`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono text-slate-400">
@@ -93,7 +93,7 @@ const MetricsPanel = ({
 
         {/* MAR Metric */}
         <div
-          className={`p-4 rounded-lg ${marStatus.bg} border border-slate-600/50 transition-all duration-300`}
+          className={`p-2 rounded-lg ${marStatus.bg} border border-slate-600/50 transition-all duration-300`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono text-slate-400"> Boca </span>
@@ -116,7 +116,7 @@ const MetricsPanel = ({
 
         {/* Blinks Counter */}
         <div
-          className={`p-4 rounded-lg ${
+          className={`p-2 rounded-lg ${
             excessBlinks ? "bg-yellow-500/10" : "bg-slate-700/30"
           } border border-slate-600/50 transition-all duration-300`}
         >
@@ -144,7 +144,7 @@ const MetricsPanel = ({
 
         {/* Yawns Counter */}
         <div
-          className={`p-4 rounded-lg ${
+          className={`p-2 rounded-lg ${
             yawns > 0 ? "bg-orange-500/10" : "bg-slate-700/30"
           } border border-slate-600/50 transition-all duration-300`}
         >

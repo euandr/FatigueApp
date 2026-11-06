@@ -3,10 +3,12 @@ import CardResumoMonitoramento from "../components/CardResumoMonitoramento.jsx";
 import CardCamera from "../components/CardCamera.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import TabelaAlertasMonitoramento from "../components/TabelaAlertasMonitoramento.jsx";
+import AddCamModal from "../components/ConfigCamModal.jsx";
 import "./Monitoramento.css";
+import { useState } from "react";
 
 // Dados ilustrativos: nenhuma câmera está conectada nesta versão da tela.
-const cameras = ["CAM_01", "CAM_02", "CAM_03", "CAM_04", "CAM_05", "CAM_06"];
+const cameras = ["CAM_01"];
 const alertas = [
   {
     id: 1,
@@ -16,8 +18,10 @@ const alertas = [
     duracao: "10 segundos",
   },
 ];
-
 export default function Monitoramento() {
+  const [modalAberto, setModalAberto] = useState(false);
+  const [mode, setMode] = useState("add"); // "add" ou "edit"
+
   return (
     <div className="monitoramento flex h-[calc(100dvh/1.25)] min-h-0 overflow-hidden bg-[#0e1925] text-left font-[Arial,Helvetica,sans-serif] text-[#f7f8fc] max-[640px]:flex-col [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-[3px] [&_button:focus-visible]:outline-[#80afff] [&_input:focus-visible]:outline [&_input:focus-visible]:outline-2 [&_input:focus-visible]:outline-offset-[3px] [&_input:focus-visible]:outline-[#80afff]">
       <Sidebar />
@@ -32,6 +36,11 @@ export default function Monitoramento() {
             </p>
           </div>
           <button
+            onClick={() => {
+                setModalAberto(true)
+                setMode("add")
+              }   
+            }
             type="button"
             className="inline-flex items-center justify-center gap-[5px] whitespace-nowrap rounded-lg border-0 bg-[#2366f5] px-[11px] py-[9px] text-[11px] font-bold text-white hover:scale-105 hover:brightness-125 transition-all duration-200"
           >
@@ -118,12 +127,13 @@ export default function Monitoramento() {
           aria-label="Câmeras cadastradas"
         >
           {cameras.map((name) => (
-            <CardCamera key={name} name={name} />
+            <CardCamera key={name} name={name} setModalAberto={setModalAberto} setMode={setMode} />
           ))}
         </section>
 
         <TabelaAlertasMonitoramento alertas={alertas} />
       </main>
+      {modalAberto && <AddCamModal onClose={() => setModalAberto(false)} mode={mode} />}
     </div>
   );
 }

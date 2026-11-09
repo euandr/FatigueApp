@@ -5,6 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# os paramentros é apenas para encontrar o caminho correto do arquivo .env
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
@@ -20,6 +21,7 @@ def _origins():
 
 @dataclass
 class Config:
+    # tuple[str] so permite um item
     origins: tuple[str, ...] = field(default_factory=_origins)
     # Tamanho máximo do frame recebido, em caracteres base64 (2 MB por padrão).
     max_frame_base64: int = int(os.getenv("MAX_FRAME_BASE64", "2000000"))

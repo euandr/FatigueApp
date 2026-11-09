@@ -10,7 +10,9 @@ import base64
 import binascii
 from concurrent.futures import ThreadPoolExecutor
 
-
+# Cada Monitor, cria seu próprio Detector ao receber o primeiro frame válido.
+# - cada detector tem seu próprio executor de thread
+# - Assim, os contadores e o histórico de uma conexão não se misturam com os de outra.
 class Monitor:
     def __init__(self):
         self.detector = None

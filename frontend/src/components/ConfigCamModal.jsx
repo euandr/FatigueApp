@@ -1,6 +1,61 @@
 import { Link, Link2, Plus,Info  } from "lucide-react";
+import {useEffect, useState} from "react";
+import { postCamera, getCameraById, patchCamera } from "../api";
 
-export default function AddCamModal({ onClose, mode }) {
+export default function ConfigCamModal({ onClose, mode, setAtualizarCameras, cameraId }) {
+
+  async function salvarCam(){
+    if (!nome.trim() || !protocolo || !url.trim()) {
+      alert("Preencha todos os campos!")
+      return
+    }
+    try{
+      const novaCam = {
+        nome: nome,
+        protocolo: protocolo,
+        url: url,
+      }
+      const retorno = await postCamera(novaCam);
+      console.log("Câmera cadastrada:", retorno);
+      setAtualizarCameras?.((anterior) => !anterior);
+      onClose();
+
+    }catch (error) {
+      console.error("Erro ao cadastrar câmera:", error);
+    }
+  }
+  async function editarCam(){
+    if (!nome.trim() || !protocolo || !url.trim()) {
+      alert("Preencha todos os campos!");
+      return;
+    }
+    try{
+      const dadosAtualizados ={
+        name: nome, 
+        protocolo: protocolo,
+        stream_url: url
+      }
+      await patchCamera(cameraId, dadosAtualizados);
+      setAtualizarCameras?.((anterior) => !anterior);
+      onClose();
+    } catch (error) {
+      console.error("Erro ao editar câmera:", error);
+    }
+  }
+
+  useEffect(() => {
+    if (mode === "edit" && cameraId != null) {
+      getCameraById(cameraId).then((camera) => {
+        setNome(camera.name)
+        setProtocolo(camera.protocolo)
+        setUrl(camera.stream_url)
+      }).catch(console.error)
+    }
+  }, [cameraId, mode])
+  
+  const [nome, setNome] = useState("");
+  const [protocolo, setProtocolo] = useState("http");
+  const [url, setUrl] = useState("");
   return (
     <div
       id="blur-fundo-modal"
@@ -22,6 +77,8 @@ export default function AddCamModal({ onClose, mode }) {
               id="camera-name"
               type="text"
               placeholder="Ex: CAM_01"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
               className="w-full border-0 bg-transparent text-[12px] !font-normal !outline-none !shadow-none focus:!outline-none focus:!ring-0 placeholder:text-[12px]"
             />
           </div>
@@ -36,8 +93,9 @@ export default function AddCamModal({ onClose, mode }) {
 
             <select
               id="connection-type"
-              defaultValue="http"
+              value={protocolo}
               className="w-full rounded-sm  bg-[#1E2635] border-[#243243] border-[1.8px] pr-32 pl-10 py-2 text-[12px] "
+              onChange={(e) => setProtocolo(e.target.value)}
             >
               <option value="http">HTTP/HTTPS</option>
             </select>
@@ -53,6 +111,8 @@ export default function AddCamModal({ onClose, mode }) {
               id="stream-url"
               type="url"
               placeholder="Ex: http://198.168.1.100:8080"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
             ></input>
           </div>
         </div>
@@ -61,7 +121,9 @@ export default function AddCamModal({ onClose, mode }) {
           <button onClick={onClose} className=" bg-[#1E2635] border-[#243243] border-[1.8px] rounded-sm px-4 py-1 hover:scale-105 transition-transform duration-200">
             Cancelar
           </button>
-          <button onClick={onClose} className="flex bg-[#3259B9] rounded-sm px-4 py-1 items-center gap-2 hover:scale-105 transition-transform duration-200">
+          <button 
+            onClick={mode === "add" ? salvarCam : editarCam}
+            className="flex bg-[#3259B9] rounded-sm px-4 py-1 items-center gap-2 hover:scale-105 transition-transform duration-200">
             {mode=="add"?(<><Plus size={16}/> Adicionar câmera</>):"Salvar"}
           </button>
         </div>

@@ -3,12 +3,13 @@ import CardResumoMonitoramento from "../components/CardResumoMonitoramento.jsx";
 import CardCamera from "../components/CardCamera.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import TabelaAlertasMonitoramento from "../components/TabelaAlertasMonitoramento.jsx";
-import AddCamModal from "../components/ConfigCamModal.jsx";
+import ConfigCamModal from "../components/ConfigCamModal.jsx";
 import "./Monitoramento.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
+import { getCameras,postCamera } from "../api";
 // Dados ilustrativos: nenhuma câmera está conectada nesta versão da tela.
-const cameras = ["CAM_01"];
+// const cameras = ["CAM_01"];
 const alertas = [
   {
     id: 1,
@@ -18,9 +19,26 @@ const alertas = [
     duracao: "10 segundos",
   },
 ];
+
+
 export default function Monitoramento() {
   const [modalAberto, setModalAberto] = useState(false);
   const [mode, setMode] = useState("add"); // "add" ou "edit"
+  const [cameraId, setCameraId] = useState(null);
+
+  const [cameras, setCameras] = useState([]);
+  const [erroCameras, setErroCameras] = useState("");
+  const [atualizarCameras, setAtualizarCameras] = useState(false);
+
+  useEffect(() => {
+    getCameras().then((dados) => {
+      if (!Array.isArray(dados)) throw new Error("Resposta inválida da API");
+      setCameras(dados);
+    }).catch((erro) => {
+      console.error("Erro ao buscar câmeras:", erro);
+      setErroCameras("Não foi possível carregar as câmeras.");
+    });
+  }, [atualizarCameras, modalAberto]); 
 
   return (
     <div className="monitoramento flex h-[calc(100dvh/1.25)] min-h-0 overflow-hidden bg-[#0e1925] text-left font-[Arial,Helvetica,sans-serif] text-[#f7f8fc] max-[640px]:flex-col [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-[3px] [&_button:focus-visible]:outline-[#80afff] [&_input:focus-visible]:outline [&_input:focus-visible]:outline-2 [&_input:focus-visible]:outline-offset-[3px] [&_input:focus-visible]:outline-[#80afff]">
@@ -39,6 +57,7 @@ export default function Monitoramento() {
             onClick={() => {
                 setModalAberto(true)
                 setMode("add")
+                setCameraId(null)
               }   
             }
             type="button"
@@ -52,6 +71,7 @@ export default function Monitoramento() {
           </button>
         </header>
 
+        {erroCameras && <p role="alert" className="mb-4 text-red-400">{erroCameras}</p>}
         <section
           className="mb-[18px] grid grid-cols-3 gap-[10px] max-[640px]:gap-[7px]"
           aria-label="Resumo do monitoramento"
@@ -126,14 +146,14 @@ export default function Monitoramento() {
           className="mb-5 grid grid-cols-[repeat(auto-fill,minmax(min(245px,100%),1fr))] gap-[19px] min-[1600px]:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]"
           aria-label="Câmeras cadastradas"
         >
-          {cameras.map((name) => (
-            <CardCamera key={name} name={name} setModalAberto={setModalAberto} setMode={setMode} />
+          {cameras.map((cam) => (
+            <CardCamera key={cam.id} id={cam.id} name={cam.name} setModalAberto={setModalAberto} setMode={setMode} setCameraId={setCameraId} setAtualizarCameras={setAtualizarCameras} atualizarCameras={atualizarCameras} />
           ))}
         </section>
 
         <TabelaAlertasMonitoramento alertas={alertas} />
       </main>
-      {modalAberto && <AddCamModal onClose={() => setModalAberto(false)} mode={mode} />}
+      {modalAberto && <ConfigCamModal setAtualizarCameras={setAtualizarCameras} atualizarCameras={atualizarCameras} onClose={() => setModalAberto(false)} mode={mode} cameraId={cameraId} />}
     </div>
   );
 }

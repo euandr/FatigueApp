@@ -22,6 +22,13 @@ def listar_cameras():
      response = supabase.table("devices").select("*").execute()
      return response.data
 
+@router.get("/{camera_id}")
+def obter_camera(camera_id: str):
+     response = supabase.table("devices").select("*").eq("id", camera_id).execute()
+     if not response.data:
+        raise HTTPException(status_code=404, detail="Camera não encontrada")
+     return response.data[0]
+
 @router.post("/registrar")
 def registrar_camera(CriarCamera: CriarCamera):
      try:

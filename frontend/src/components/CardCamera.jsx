@@ -1,18 +1,24 @@
 import { MoreVertical, VideoOff, Power, SquarePen, Trash } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {deleteCamera} from "../api";
+
 
 export default function CardCamera({
-  name = "CAM_01",
+  id,
+  name,
   status = "Desconectada",
   setModalAberto,
   setMode,
+  setCameraId,
+  setAtualizarCameras,
+  atualizarCameras,
 }) {
   const [modalSettings, setModalSettings] = useState(false);
   const navigate = useNavigate();
   return (
     <article
-      onClick={() => navigate(`/DetalheCam/${name}`)}
+      onClick={() => navigate(`/DetalheCam/${id}`)}
       className=" hover:scale-105 transition-transform duration-200 relative min-w-0 rounded-[6px] border border-[#263747] p-[3px]"
       aria-label={`Câmera ${name}: ${status}`}
     >
@@ -54,17 +60,23 @@ export default function CardCamera({
           onClick={(e) => e.stopPropagation()}
           className="absolute bottom-[10px] right-10 z-50 flex flex-col gap-[15px] rounded-[9px] border border-[#263242] bg-[#101B27] p-[15px] [&_button]:flex [&_button]:items-center [&_button]:gap-[10px] [&_button]:text-[12px]  "
         >
-          <button className="text-[#ff0000] transition-transform duration-200 hover:scale-105">
+          <button onClick={() => setModalSettings(false)} className="text-[#ff0000] transition-transform duration-200 hover:scale-105">
             <Power size={18} /> Desconectar
           </button>
           <button 
             onClick={() => {
+              setCameraId(id)
               setModalAberto(true)
               setMode("edit")
+              setModalSettings(!modalSettings);
             }} className="transition-transform duration-200 hover:scale-105">
             <SquarePen size={18} /> Editar câmera
           </button>
-          <button className="text-[#ff0000] transition-transform duration-200 hover:scale-105">
+          <button onClick={() => {
+            deleteCamera(id);
+            setAtualizarCameras(!atualizarCameras);
+            setModalSettings(!modalSettings);
+          }}className="text-[#ff0000] transition-transform duration-200 hover:scale-105">
             <Trash size={18} /> Excluir câmera
           </button>
         </div>

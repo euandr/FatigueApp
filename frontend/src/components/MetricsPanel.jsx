@@ -74,9 +74,9 @@ const MetricsPanel = ({
             <span className="text-xs font-mono text-slate-400">
               Olhos 
             </span>
-            <span className={`text-xs font-mono font-bold ${earStatus.color}`}>
+            {/* <span className={`text-xs font-mono font-bold ${earStatus.color}`}>
               {earStatus.label}
-            </span>
+            </span> */}
           </div>
           <div className={`text-2xl font-bold font-mono ${earStatus.color}`}>
             {ear.toFixed(3)}
@@ -97,9 +97,9 @@ const MetricsPanel = ({
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono text-slate-400"> Boca </span>
-            <span className={`text-xs font-mono font-bold ${marStatus.color}`}>
+            {/* <span className={`text-xs font-mono font-bold ${marStatus.color}`}>
               {marStatus.label}
-            </span>
+            </span> */}
           </div>
           <div className={`text-2xl font-bold font-mono ${marStatus.color}`}>
             {mar.toFixed(3)}
@@ -128,9 +128,11 @@ const MetricsPanel = ({
                   excessBlinks ? "text-yellow-500" : "text-slate-400"
                 }`}
               />
-            ) : (
-              <span className="text-xs font-mono text-slate-400">Inativo</span>
-            )}
+            ) : null
+            //  (
+            //   <span className="text-xs font-mono text-slate-400">Inativo</span>
+            // )
+            }
           </div>
           <div
             className={`text-2xl font-bold font-mono ${
@@ -156,9 +158,11 @@ const MetricsPanel = ({
                   yawns > 2 ? "text-red-500" : "text-orange-400"
                 }`}
               />
-            ) : (
-              <span className="text-xs font-mono text-slate-400">Inativo</span>
-            )}
+            ) : null
+            //  (
+            //   <span className="text-xs font-mono text-slate-400">Inativo</span>
+            // )
+            }
           </div>
           <div
             className={`text-2xl font-bold font-mono ${

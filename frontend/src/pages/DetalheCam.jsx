@@ -1,15 +1,15 @@
 import VideoFeed from "@/components/VideoFeed";
 import { useNavigate } from "react-router-dom";
-import MetricsPanel from "@/components/MetricsPanel";
 import Sidebar from "@/components/Sidebar";
+import MetricsPanel from "@/components/MetricsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import ConfigCamModal from "@/components/ConfigCamModal";
-import { useFatigueDetection } from "@/hooks/useFatigueDetection";
-import { useDevices } from "@/hooks/useDevices";
+import { getCameras } from "@/api";
+
 import "./Monitoramento.css";
 import CardResumoMonitoramento from "@/components/CardResumoMonitoramento";
 import { useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Video,
@@ -28,56 +28,30 @@ import {
 const DetalheCam = () => {
   const [modalAberto, setModalAberto] = useState(false);
   const navigate = useNavigate();
-  // ✅ PRIMEIRO: Get devices hook
-  const { currentDevice, registerDeviceOnCamera } = useDevices();
+  const { name: cameraId } = useParams();
+  const [camera, setCamera] = useState(null);
+  const [erroCamera, setErroCamera] = useState("");
 
-  // ✅ SEGUNDO: Use FatigueDetection WITH currentDevice.id
-  const {
-    videoRef,
-    isStreaming,
-    isConnected,
-    isMuted,
-    processedFrame,
-    metrics,
-    yawnCount,
-    toggleStreaming,
-    toggleMute,
-  } = useFatigueDetection({ deviceId: currentDevice?.id });
-
-  // ✅ Handler para iniciar/parar com device pronto
-  const handleStartStop = async () => {
-    // Se está parando, só para
-    if (isStreaming) {
-      toggleStreaming();
-      return;
-    }
-
-    // Se está iniciando e não tem device, registra PRIMEIRO
-    if (!currentDevice) {
-      console.log("📱 Registrando device...");
-      const result = await registerDeviceOnCamera();
-      if (!result.success) {
-        console.error("Falha ao registrar device:", result.error);
-        return;
-      }
-      console.log("✅ Device registrado:", result.device?.id);
-
-      // Inicia streaming COM o deviceId registrado
-      toggleStreaming(result.device?.id);
-    } else {
-      // Se já tem device, usa o ID dele
-      console.log("🎬 Iniciando streaming com device:", currentDevice?.id);
-      toggleStreaming(currentDevice?.id);
-    }
-  };
-
-  // const handleLogout = async () => {
-  //   await stopStreaming();
-  //   await supabase.auth.signOut();
-  //   navigate("/");
-  // };
-  const alertActive =
-    metrics.fatigueAlert || metrics.yawnDetected || metrics.excessBlinks;
+  useEffect(() => {
+    let ativo = true;
+    getCameras()
+      .then((cameras) => {
+        if (!Array.isArray(cameras))
+          throw new Error("Resposta inválida da API");
+        const encontrada = cameras.find((item) => String(item.id) === cameraId);
+        if (ativo) {
+          setCamera(encontrada || null);
+          setErroCamera(encontrada ? "" : "Câmera não encontrada.");
+        }
+      })
+      .catch((erro) => {
+        console.error("Erro ao buscar câmera:", erro);
+        if (ativo) setErroCamera("Não foi possível carregar a câmera.");
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [cameraId]);
 
   const iconEventoTable = (evento) => {
     switch (evento) {
@@ -92,6 +66,7 @@ const DetalheCam = () => {
     }
   };
 
+  // Dados ilustrativos até a integração do monitoramento ser implementada.
   const eventosRecents = [
     {
       id: 1,
@@ -113,24 +88,8 @@ const DetalheCam = () => {
     },
   ];
 
-  const { name } = useParams();
-
   return (
     <div className="detalhe-cam flex h-[calc(100dvh/1.25)] min-h-0 overflow-hidden bg-[#0e1925] text-left font-[Arial,Helvetica,sans-serif] text-[#f7f8fc]">
-      {/* Header
-      <header className="w-full bg-slate-800/80 backdrop-blur-sm border-b border-slate-700/50 px-4 md:px-6 lg:px-8 py-6">
-        <div className="flex items-center justify-end">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-emerald-500/50 rounded-lg transition-all duration-200 group"
-          >
-            <LogOut className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
-            <span className="text-sm font-semibold text-emerald-400 group-hover:text-emerald-300 transition-colors">
-              Sair
-            </span>
-          </button>
-        </div>
-      </header> */}
       <Sidebar />
 
       <div className="min-h-0 min-w-0 flex-1 overflow-auto">
@@ -144,7 +103,9 @@ const DetalheCam = () => {
               >
                 <ArrowLeft className="text-[#A4C5DD] hover:scale-[1.2] transition-transform duration-200" />{" "}
               </button>
-              <h1 className="text-[28px] font-bold text-white">{name}</h1>
+              <h1 className="text-[28px] font-bold text-white">
+                {camera?.name || "Detalhes da câmera"}
+              </h1>
               <span className="flex items-center gap-2 text-[#C62929] bg-[#4B1616] rounded-xl px-[16px] py-1 text-[12px]">
                 <span className="w-[8px] h-[8px] rounded-full bg-[#C62929]"></span>
                 Desconectada
@@ -182,51 +143,37 @@ const DetalheCam = () => {
 
         {/* Main Content */}
         <main className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 pt-2 px-4 md:pt-2 md:px-6 lg:pt-2 lg:px-8">
+          {erroCamera && (
+            <p role="alert" className="col-span-full text-red-400">
+              {erroCamera}
+            </p>
+          )}
           {/* Left Column - Video Feed */}
           <div className="lg:col-span-2 lg:flex lg:flex-col">
             <VideoFeed
-              ref={videoRef}
-              isConnected={isConnected}
-              isStreaming={isStreaming}
-              processedFrame={processedFrame}
-              alertActive={alertActive}
-              deviceName={currentDevice?.name || "CAM_01"}
+              isConnected={false}
+              isStreaming={false}
+              deviceName={camera?.name}
             />
-
-            {/* Control Panel - Below video on desktop
-          <div className="hidden lg:block">
-            <ControlPanel
-              isStreaming={isStreaming}
-              isConnected={isConnected}
-              isMuted={isMuted}
-              onStartStop={handleStartStop}
-              onMuteToggle={toggleMute}
-            />
-          </div> */}
           </div>
 
           {/* Right Column - Metrics & Events */}
           <div className="flex flex-col gap-3">
             {/* Control Panel - Top on mobile */}
-
             <MetricsPanel
-              isStreaming={isStreaming}
-              ear={metrics.ear}
-              mar={metrics.mar}
-              blinks={metrics.blinks}
-              yawns={yawnCount}
-              eyesClosed={metrics.eyesClosed}
-              yawnDetected={metrics.yawnDetected}
-              excessBlinks={metrics.excessBlinks}
+              isStreaming={false}
+              ear={0}
+              mar={0}
+              blinks={0}
+              yawns={0}
             />
-
-            <ControlPanel
-              isStreaming={isStreaming}
-              isConnected={isConnected}
-              isMuted={isMuted}
-              onStartStop={handleStartStop}
-              onMuteToggle={toggleMute}
-            />
+            <fieldset disabled>
+              <ControlPanel
+                isStreaming={false}
+                isConnected={false}
+                isMuted={false}
+              />
+            </fieldset>
           </div>
 
           <section className="col-span-full rounded-lg bg-[#12202E] p-[16px]">
@@ -320,7 +267,7 @@ const DetalheCam = () => {
         </main>
       </div>
       {modalAberto && (
-        <ConfigCamModal mode="edit" onClose={() => setModalAberto(false)} />
+        <ConfigCamModal mode="edit" cameraId={cameraId} onClose={() => setModalAberto(false)} />
       )}
     </div>
   );

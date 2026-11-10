@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Config
-from .routes import health, monitoring
+from .routes import health, monitoring, cameras
 
 
 def create_app(config=None):
@@ -21,13 +21,14 @@ def create_app(config=None):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(config.origins),
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Content-Type"],
     )
     app.state.config = config
 
     app.include_router(health.router)
     app.include_router(monitoring.router)
+    app.include_router(cameras.router)
 
     return app
 

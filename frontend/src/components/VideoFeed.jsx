@@ -4,11 +4,15 @@ import { Camera, CameraOff } from "lucide-react";
 const VideoFeed = forwardRef(
   (
     {
+      cameraUrl,
       isConnected,
       isStreaming,
+      onCameraLoad,
+      onCameraError,
+      cameraError,
       processedFrame,
       alertActive,
-      deviceName = "CAM_01",
+      deviceName,
     },
     ref,
   ) => {
@@ -41,16 +45,28 @@ const VideoFeed = forwardRef(
         {/* Video container */}
         <div className="relative aspect-video bg-slate-800/50">
           {/* Raw video (hidden, used for capture) */}
-          <video
-            ref={ref}
-            autoPlay
-            playsInline
-            muted
-            className={`absolute inset-0 w-full h-full object-cover ${
-              processedFrame ? "opacity-0" : "opacity-100"
-            }`}
-            style={{ transform: "scaleX(-1)" }}
-          />
+          {cameraUrl ? (
+            <img
+              crossOrigin="anonymous"
+              src={cameraUrl}
+              alt={`Transmissão de ${deviceName}`}
+              onLoad={onCameraLoad}
+              onError={onCameraError}
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+          ) : (
+            <video
+              ref={ref}
+              src={cameraUrl || undefined}
+              autoPlay
+              playsInline
+              muted
+              className={`absolute inset-0 w-full h-full object-cover ${
+                processedFrame ? "opacity-0" : "opacity-100"
+              }`}
+              style={{ transform: "scaleX(-1)" }}
+            />
+          )}
 
           {/* Processed frame from Python */}
           {processedFrame && (
@@ -70,11 +86,13 @@ const VideoFeed = forwardRef(
           )}
 
           {/* Connection status overlay */}
-          {isStreaming && !isConnected && (
+          {isStreaming && !isConnected && (!cameraUrl || cameraError) && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-blue-400 font-mono">
-                Conectando ao servidor...
+              {!cameraError && (
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+              )}
+              <p className="text-blue-400 font-mono text-center">
+                {cameraError || "Conectando ao servidor..."}
               </p>
             </div>
           )}
@@ -106,7 +124,7 @@ const VideoFeed = forwardRef(
         {alertActive && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-red-600/90 rounded-full border border-red-500">
             <span className="font-bold text-white tracking-wider">
-              ⚠ ALERTA DE FADIGA
+               ALERTA: SINAL DE FADIGA
             </span>
           </div>
         )}

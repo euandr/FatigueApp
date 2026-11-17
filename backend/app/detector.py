@@ -57,7 +57,7 @@ class Detector:
         detection_data = {
             "ear": 0.3, "mar": 0.2, "blinks": 0,
             "totalBlinks": self.total_blinks, "eyesClosed": False,
-            "yawnDetected": False, "excessBlinks": False, "fatigueAlert": False,
+            "yawnDetected": False, "excessBlinks": False, "prolongedEyeClosure": False,
         }
         if results.multi_face_landmarks:
             mesh_points = results.multi_face_landmarks[0].landmark
@@ -116,7 +116,7 @@ class Detector:
                 "ear": float(ear), "mar": float(mar), "blinks": blinks_in_window,
                 "totalBlinks": self.total_blinks,
                 "yawnDetected": yawn_detected and self.yawn_on,
-                "excessBlinks": excess_blinks, "fatigueAlert": fatigue_alert,
+                "excessBlinks": excess_blinks, "prolongedEyeClosure": fatigue_alert,
             }
         _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         detection_data["frame"] = base64.b64encode(buffer).decode('utf-8')

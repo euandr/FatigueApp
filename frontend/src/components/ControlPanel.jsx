@@ -15,6 +15,7 @@ const ControlPanel = ({
   isMuted,
   onStartStop,
   onMuteToggle,
+  startDisabled = false,
 }) => {
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-3">
@@ -43,6 +44,7 @@ const ControlPanel = ({
       <div className="flex gap-3">
         <Button
           onClick={onStartStop}
+          disabled={!isStreaming && startDisabled}
           className={`flex-1 gap-2 font-mono transition-all ${
             isStreaming
               ? "bg-red-600 hover:bg-red-700 text-white"

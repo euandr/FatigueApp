@@ -1,3 +1,4 @@
+import { CameraProvider } from "./contexts/CameraContext";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
@@ -37,7 +38,7 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "/DetalheCam/:name",
+    path: "/DetalheCam/:id",
     element: (
       <App>
         <DetalheCam />
@@ -72,6 +73,8 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <CameraProvider>
+      <RouterProvider router={router} />
+    </CameraProvider>
   </StrictMode>
 );

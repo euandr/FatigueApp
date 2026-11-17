@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste da câmera IP</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px; margin: 8px 0 12px; }
+    button { padding: 10px 16px; margin-right: 8px; cursor: pointer; }
+    img { display: block; max-width: 100%; margin-top: 18px; background: #eee; }
+    #status { margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <h2>Visualizar câmera IP</h2>
+  <label for="url">URL da transmissão</label>
+  <input id="url" type="url" value="https://192.168.0.108:3030/video">
+  <button id="connect">Conectar</button>
+  <button id="disconnect">Desconectar</button>
+  <p id="status">Desconectado.</p>
+  <img id="feed" alt="Transmissão da câmera" hidden>
+  <script>
+    const input = document.getElementById('url');
+    const feed = document.getElementById('feed');
+    const status = document.getElementById('status');
+    document.getElementById('connect').addEventListener('click', () => {
+      const url = input.value.trim();
+      if (!url) { status.textContent = 'Informe a URL.'; return; }
+      feed.hidden = false;
+      status.textContent = 'Tentando conectar...';
+      feed.src = url;
+    });
+    document.getElementById('disconnect').addEventListener('click', () => {
+      feed.removeAttribute('src');
+      feed.hidden = true;
+      status.textContent = 'Desconectado.';
+    });
+    feed.addEventListener('load', () => { status.textContent = 'Imagem recebida.'; });
+    feed.addEventListener('error', () => { status.textContent = 'Não foi possível carregar. Verifique a rede, o certificado HTTPS e se o formato é MJPEG.'; });
+  </script>
+</body>
+</html>

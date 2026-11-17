@@ -4,7 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import MetricsPanel from "@/components/MetricsPanel";
 import ControlPanel from "@/components/ControlPanel";
 import ConfigCamModal from "@/components/ConfigCamModal";
-import { getCameras } from "@/api";
+import { getCameraById } from "@/api";
 
 import "./Monitoramento.css";
 import CardResumoMonitoramento from "@/components/CardResumoMonitoramento";
@@ -25,68 +25,128 @@ import {
   RotateCcwClock,
 } from "lucide-react";
 
+// import {useCamera} from "../hooks/useCamera";
+import { useCameras } from "../contexts/CameraContext";
+
 const DetalheCam = () => {
   const [modalAberto, setModalAberto] = useState(false);
   const navigate = useNavigate();
-  const { name: cameraId } = useParams();
+  const { id: cameraId } = useParams();
   const [camera, setCamera] = useState(null);
   const [erroCamera, setErroCamera] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+  const [erroStream, setErroStream] = useState("");
+
+  const {
+    camerasAtivas,
+    startCamera,
+    stopCamera,
+    deteccoes,
+    alertas,
+    sessoes,
+  } = useCameras();
+  const cameraUrl = camerasAtivas[cameraId];
+  const isActive = Boolean(cameraUrl);
+  const metricas = deteccoes[cameraId];
+
+  const sessao = sessoes[cameraId];
+  const [agora, setAgora] = useState(Date.now());
+
+  useEffect(() => {
+    setAgora(Date.now());
+
+    if (!sessao || sessao.encerradaEm !== null) return;
+    const intervalo = setInterval(() => {
+      setAgora(Date.now());
+    }, 1000);
+
+    return () => clearInterval(intervalo);
+  }, [sessao]);
+
+  const inicioFormatado = sessao
+    ? new Date(sessao.iniciadaEm).toLocaleTimeString("pt-BR")
+    : "—";
+  const segundos = sessao
+    ? Math.max(
+        0,
+        Math.floor(((sessao.encerradaEm ?? agora) - sessao.iniciadaEm) / 1000),
+      )
+    : 0;
+  const horas = String(Math.floor(segundos / 3600)).padStart(2, "0");
+  const minutos = String(Math.floor((segundos % 3600) / 60)).padStart(2, "0");
+  const segundosRestantes = String(segundos % 60).padStart(2, "0");
+
+  const duracaoFormatada = sessao
+    ? `${horas}h${minutos}min${segundosRestantes}s`
+    : "—";
+
+  const alertasAtivos = [];
+  if (metricas?.prolongedEyeClosure) {
+    alertasAtivos.push("Olhos fechados prolongadamente");
+  }
+
+  if (metricas?.yawnDetected) {
+    alertasAtivos.push("Bocejo detectado");
+  }
+
+  if (metricas?.excessBlinks) {
+    alertasAtivos.push("Piscadas excessivas");
+  }
+
+  function alternarCamera() {
+    setIsConnected(false);
+    setErroStream("");
+    if (isActive) stopCamera(cameraId);
+    else startCamera(cameraId, camera?.stream_url);
+  }
 
   useEffect(() => {
     let ativo = true;
-    getCameras()
-      .then((cameras) => {
-        if (!Array.isArray(cameras))
+    setCamera(null);
+    setErroCamera("");
+    getCameraById(cameraId)
+      .then((encontrada) => {
+        if (
+          !encontrada ||
+          typeof encontrada !== "object" ||
+          Array.isArray(encontrada)
+        )
           throw new Error("Resposta inválida da API");
-        const encontrada = cameras.find((item) => String(item.id) === cameraId);
         if (ativo) {
-          setCamera(encontrada || null);
-          setErroCamera(encontrada ? "" : "Câmera não encontrada.");
+          setCamera(encontrada);
+          setErroCamera("");
         }
       })
       .catch((erro) => {
         console.error("Erro ao buscar câmera:", erro);
-        if (ativo) setErroCamera("Não foi possível carregar a câmera.");
+        if (ativo)
+          setErroCamera(
+            erro.response?.status === 404
+              ? "Câmera não encontrada."
+              : "Não foi possível carregar a câmera.",
+          );
       });
     return () => {
       ativo = false;
     };
   }, [cameraId]);
 
-  const iconEventoTable = (evento) => {
-    switch (evento) {
-      case "Olhos fechados":
-        return <EyeOff className="w-5 h-5 text-red-500" />;
-      case "Bocejo":
-        return <FaceGrinning className="w-5 h-5 text-yellow-500" />;
-      case "Piscadas excessivas":
-        return <EyeClosed className="w-5 h-5 text-blue-500" />;
+  const iconEventoTable = (tipo) => {
+    switch (tipo) {
+      case "olhos_fechados":
+        return <EyeClosed className="w-5 h-5 text-yellow-500" />;
+      case "bocejo":
+        return <FaceGrinning className="w-5 h-5 text-[#9d3ef4]" />;
+      case "piscadas_excessivas":
+        return <EyeOff className="w-5 h-5 text-blue-500" />;
       default:
         return <TriangleAlert className="w-5 h-5 text-gray-500" />;
     }
   };
 
-  // Dados ilustrativos até a integração do monitoramento ser implementada.
-  const eventosRecents = [
-    {
-      id: 1,
-      horario: "14:23:01",
-      evento: "Olhos fechados",
-      detalhes: "EAR: 0.18 | Duração: 3.2 s",
-    },
-    {
-      id: 2,
-      horario: "14:25:12",
-      evento: "Bocejo",
-      detalhes: "Duração: 2.1 s",
-    },
-    {
-      id: 3,
-      horario: "14:27:30",
-      evento: "Piscadas excessivas",
-      detalhes: "MAR: 0.72",
-    },
-  ];
+  const eventosRecents = alertas.filter(
+    (alerta) => String(alerta.cameraId) === String(cameraId),
+  );
 
   return (
     <div className="detalhe-cam flex h-[calc(100dvh/1.25)] min-h-0 overflow-hidden bg-[#0e1925] text-left font-[Arial,Helvetica,sans-serif] text-[#f7f8fc]">
@@ -106,9 +166,19 @@ const DetalheCam = () => {
               <h1 className="text-[28px] font-bold text-white">
                 {camera?.name || "Detalhes da câmera"}
               </h1>
-              <span className="flex items-center gap-2 text-[#C62929] bg-[#4B1616] rounded-xl px-[16px] py-1 text-[12px]">
-                <span className="w-[8px] h-[8px] rounded-full bg-[#C62929]"></span>
-                Desconectada
+              <span
+                className={`flex items-center gap-2 ${isConnected ? "text-[#0cda69] bg-[#133632]" : "text-[#C62929] bg-[#4B1616]"} rounded-xl px-[16px] py-1 text-[12px]`}
+              >
+                <span
+                  className={`w-[8px] h-[8px] rounded-full ${isConnected ? "bg-[#0cda69]" : "bg-[#C62929]"}`}
+                ></span>
+                {isConnected
+                  ? "Conectada"
+                  : erroStream
+                    ? "Erro de conexão"
+                    : isActive
+                      ? "Conectando"
+                      : "Desconectada"}
               </span>
             </div>
             <div className="mt-1 flex gap-3 text-[12px] font-bold text-[#A4C5DD] [&_span]:items-center">
@@ -119,17 +189,21 @@ const DetalheCam = () => {
               <span> | </span>
               <span className="flex  gap-[10px]">
                 {" "}
-                <Link size={20} /> RTSP
+                <Link size={20} /> {camera?.protocolo || "Stream"}
               </span>
               <span> | </span>
               <span className="flex gap-[10px]">
                 {" "}
-                <Clock12 size={20} /> Sessão iniciada às 14:23{" "}
+                <Clock12 size={20} />{" "}
+                {sessao && sessao.encerradaEm !== null
+                  ? "Última sessão iniciada às"
+                  : "Sessão iniciada às"}{" "}
+                {inicioFormatado}
               </span>
               <span> | </span>
               <span className="flex gap-[10px]">
                 {" "}
-                <Clock4 size={20} /> Duração: 1h23min{" "}
+                <Clock4 size={20} /> Duração: {duracaoFormatada}
               </span>
             </div>
           </div>
@@ -151,8 +225,21 @@ const DetalheCam = () => {
           {/* Left Column - Video Feed */}
           <div className="lg:col-span-2 lg:flex lg:flex-col">
             <VideoFeed
-              isConnected={false}
-              isStreaming={false}
+              alertActive={isActive && alertasAtivos.length > 0}
+              cameraUrl={cameraUrl}
+              isStreaming={isActive}
+              isConnected={isConnected}
+              cameraError={erroStream}
+              onCameraLoad={() => {
+                setIsConnected(true);
+                setErroStream("");
+              }}
+              onCameraError={() => {
+                setIsConnected(false);
+                setErroStream(
+                  "Não foi possível carregar a câmera. Verifique a rede e o certificado HTTPS.",
+                );
+              }}
               deviceName={camera?.name}
             />
           </div>
@@ -161,19 +248,25 @@ const DetalheCam = () => {
           <div className="flex flex-col gap-3">
             {/* Control Panel - Top on mobile */}
             <MetricsPanel
-              isStreaming={false}
-              ear={0}
-              mar={0}
-              blinks={0}
-              yawns={0}
+              isStreaming={isActive && Boolean(metricas)}
+              ear={metricas?.ear ?? 0}
+              mar={metricas?.mar ?? 0}
+              blinks={metricas?.blinks ?? 0}
+              yawns={null}
+              eyesClosed={
+                metricas?.eyesClosed ?? (metricas ? metricas.ear < 0.2 : false)
+              }
+              yawnDetected={metricas?.yawnDetected ?? false}
+              excessBlinks={metricas?.excessBlinks ?? false}
             />
-            <fieldset disabled>
-              <ControlPanel
-                isStreaming={false}
-                isConnected={false}
-                isMuted={false}
-              />
-            </fieldset>
+
+            <ControlPanel
+              isStreaming={isActive}
+              isConnected={isConnected}
+              isMuted={false}
+              onStartStop={alternarCamera}
+              startDisabled={!camera?.stream_url}
+            />
           </div>
 
           <section className="col-span-full rounded-lg bg-[#12202E] p-[16px]">
@@ -192,7 +285,7 @@ const DetalheCam = () => {
               <div className="flex items-center gap-2 ">
                 <Clock4 size={30} strokeWidth={1} />
                 <div>
-                  <h2>01h23min</h2>
+                  <h2>{duracaoFormatada}</h2>
                   <h2 className="text-[14px] text-[#A4C5DD] ">
                     Tempo de monitoramento
                   </h2>
@@ -254,11 +347,18 @@ const DetalheCam = () => {
                     key={evento.id}
                     className="odd:bg-[#101C2B] even:bg-[#1C293B]"
                   >
-                    <td className="px-6 py-2">{evento.horario}</td>
-                    <td className="py-2 flex items-center gap-2">
-                      {iconEventoTable(evento.evento)} {evento.evento}
+                    <td className="px-6 py-2">
+                      {" "}
+                      {new Date(evento.horario).toLocaleTimeString("pt-BR")}
                     </td>
-                    <td className="py-2">{evento.detalhes}</td>
+                    <td className="py-2 flex items-center gap-2">
+                      {iconEventoTable(evento.tipo)}
+                      {evento.tipo === "olhos_fechados" && "Olhos fechados"}
+                      {evento.tipo === "bocejo" && "Bocejo"}
+                      {evento.tipo === "piscadas_excessivas" &&
+                        "Piscadas excessivas"}
+                    </td>
+                    <td className="py-2">{evento.mensagem}</td>
                   </tr>
                 ))}
               </tbody>
@@ -267,7 +367,14 @@ const DetalheCam = () => {
         </main>
       </div>
       {modalAberto && (
-        <ConfigCamModal mode="edit" cameraId={cameraId} onClose={() => setModalAberto(false)} />
+        <ConfigCamModal
+          mode="edit"
+          cameraId={cameraId}
+          onClose={(cameraAtualizada) => {
+            if (cameraAtualizada) setCamera(cameraAtualizada);
+            setModalAberto(false);
+          }}
+        />
       )}
     </div>
   );

@@ -99,7 +99,7 @@ def process_frame(frame):
         "eyesClosed": False,
         "yawnDetected": False,
         "excessBlinks": False,
-        "fatigueAlert": False,
+        "prolongedEyeClosure": False,
     }
 
     if results.multi_face_landmarks:
@@ -182,7 +182,7 @@ def process_frame(frame):
             "totalBlinks": total_blinks,
             "yawnDetected": yawn_detected and yawn_on,
             "excessBlinks": excess_blinks,
-            "fatigueAlert": fatigue_alert,
+            "prolongedEyeClosure": fatigue_alert,
         }
 
     # Codificar frame para base64

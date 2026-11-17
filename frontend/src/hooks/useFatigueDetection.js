@@ -10,7 +10,7 @@ const initialMetrics = {
   eyesClosed: false,
   yawnDetected: false,
   excessBlinks: false,
-  fatigueAlert: false,
+  prolongedEyeClosure: false,
 };
 
 /**
@@ -170,7 +170,7 @@ export const useFatigueDetection = () => {
             eyesClosed: values.eyesClosed ?? values.ear < 0.2,
           });
           if (frame) setProcessedFrame(frame);
-          if (data.fatigueAlert) {
+          if (data.prolongedEyeClosure) {
             addEvent(
               "Alerta de fadiga detectado - olhos fechados por muito tempo",
               "fatigue_alert"

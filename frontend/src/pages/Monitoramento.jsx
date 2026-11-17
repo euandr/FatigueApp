@@ -6,20 +6,11 @@ import TabelaAlertasMonitoramento from "../components/TabelaAlertasMonitoramento
 import ConfigCamModal from "../components/ConfigCamModal.jsx";
 import "./Monitoramento.css";
 import { useState, useEffect } from "react";
+import { useCameras } from "../contexts/CameraContext";
+import { getCameras, postCamera } from "../api";
 
-import { getCameras,postCamera } from "../api";
 // Dados ilustrativos: nenhuma câmera está conectada nesta versão da tela.
 // const cameras = ["CAM_01"];
-const alertas = [
-  {
-    id: 1,
-    camera: "CAM_01",
-    evento: "Olhos fechados por tempo prolongado",
-    horario: "10:24:18",
-    duracao: "10 segundos",
-  },
-];
-
 
 export default function Monitoramento() {
   const [modalAberto, setModalAberto] = useState(false);
@@ -27,18 +18,38 @@ export default function Monitoramento() {
   const [cameraId, setCameraId] = useState(null);
 
   const [cameras, setCameras] = useState([]);
-  const [erroCameras, setErroCameras] = useState("");
   const [atualizarCameras, setAtualizarCameras] = useState(false);
+  const { alertas, camerasAtivas, deteccoes } = useCameras();
 
   useEffect(() => {
-    getCameras().then((dados) => {
-      if (!Array.isArray(dados)) throw new Error("Resposta inválida da API");
-      setCameras(dados);
-    }).catch((erro) => {
-      console.error("Erro ao buscar câmeras:", erro);
-      setErroCameras("Não foi possível carregar as câmeras.");
-    });
-  }, [atualizarCameras, modalAberto]); 
+    getCameras()
+      .then((dados) => {
+        if (!Array.isArray(dados)) throw new Error("Resposta inválida da API");
+        setCameras(dados);
+      })
+      .catch((erro) => {
+        console.error("Erro ao buscar câmeras:", erro);
+      });
+  }, [atualizarCameras, modalAberto]);
+
+  const alertasTabela = alertas.map((alerta) => {
+    const camera = cameras.find((item) => item.id === String(alerta.cameraId));
+    return {
+      id: alerta.id,
+      cameraId: alerta.cameraId,
+      camera: camera?.name ?? "camera desconhecida",
+      evento: alerta.mensagem,
+      horario: new Date(alerta.horario).toLocaleTimeString("pt-BR"),
+      data: new Date(alerta.horario).toLocaleDateString("pt-BR"),
+    };
+  });
+
+  const camerasComAlerta = Object.values(deteccoes).filter(
+    (metricas) =>
+      metricas.prolongedEyeClosure ||
+      metricas.yawnDetected ||
+      metricas.excessBlinks,
+  ).length;
 
   return (
     <div className="monitoramento flex h-[calc(100dvh/1.25)] min-h-0 overflow-hidden bg-[#0e1925] text-left font-[Arial,Helvetica,sans-serif] text-[#f7f8fc] max-[640px]:flex-col [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-[3px] [&_button:focus-visible]:outline-[#80afff] [&_input:focus-visible]:outline [&_input:focus-visible]:outline-2 [&_input:focus-visible]:outline-offset-[3px] [&_input:focus-visible]:outline-[#80afff]">
@@ -55,11 +66,10 @@ export default function Monitoramento() {
           </div>
           <button
             onClick={() => {
-                setModalAberto(true)
-                setMode("add")
-                setCameraId(null)
-              }   
-            }
+              setModalAberto(true);
+              setMode("add");
+              setCameraId(null);
+            }}
             type="button"
             className="inline-flex items-center justify-center gap-[5px] whitespace-nowrap rounded-lg border-0 bg-[#2366f5] px-[11px] py-[9px] text-[11px] font-bold text-white hover:scale-105 hover:brightness-125 transition-all duration-200"
           >
@@ -71,7 +81,6 @@ export default function Monitoramento() {
           </button>
         </header>
 
-        {erroCameras && <p role="alert" className="mb-4 text-red-400">{erroCameras}</p>}
         <section
           className="mb-[18px] grid grid-cols-3 gap-[10px] max-[640px]:gap-[7px]"
           aria-label="Resumo do monitoramento"
@@ -83,14 +92,14 @@ export default function Monitoramento() {
           />
           <CardResumoMonitoramento
             title="Monitorando"
-            value={0}
+            value={Object.keys(camerasAtivas).length}
             icon={<Wifi />}
             backgroundColor="#133632"
             iconColor="#0cda69"
           />
           <CardResumoMonitoramento
             title="Com alerta"
-            value={alertas.length}
+            value={camerasComAlerta}
             icon={<TriangleAlert fill="#ff4149" stroke="#332631" />}
             backgroundColor="#332631"
             iconColor="#ff4149"
@@ -147,13 +156,31 @@ export default function Monitoramento() {
           aria-label="Câmeras cadastradas"
         >
           {cameras.map((cam) => (
-            <CardCamera key={cam.id} id={cam.id} name={cam.name} setModalAberto={setModalAberto} setMode={setMode} setCameraId={setCameraId} setAtualizarCameras={setAtualizarCameras} atualizarCameras={atualizarCameras} />
+            <CardCamera
+              key={cam.id}
+              id={cam.id}
+              name={cam.name}
+              stream_url={cam.stream_url}
+              setModalAberto={setModalAberto}
+              setMode={setMode}
+              setCameraId={setCameraId}
+              setAtualizarCameras={setAtualizarCameras}
+              atualizarCameras={atualizarCameras}
+            />
           ))}
         </section>
 
-        <TabelaAlertasMonitoramento alertas={alertas} />
+        <TabelaAlertasMonitoramento alertas={alertasTabela} />
       </main>
-      {modalAberto && <ConfigCamModal setAtualizarCameras={setAtualizarCameras} atualizarCameras={atualizarCameras} onClose={() => setModalAberto(false)} mode={mode} cameraId={cameraId} />}
+      {modalAberto && (
+        <ConfigCamModal
+          setAtualizarCameras={setAtualizarCameras}
+          atualizarCameras={atualizarCameras}
+          onClose={() => setModalAberto(false)}
+          mode={mode}
+          cameraId={cameraId}
+        />
+      )}
     </div>
   );
 }

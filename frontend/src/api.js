@@ -1,10 +1,22 @@
+// import axios from "axios";
+
+// const api = axios.create({
+//   baseURL: "http://localhost:8000",
+// });
+
 import axios from "axios";
 
+export const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:8000`
+).replace(/\/$/, "");
+
+export const WS_URL =
+  import.meta.env.VITE_WS_URL || `${API_URL.replace(/^http/, "ws")}/ws`;
+
 const api = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: API_URL,
 });
-
-
 // Camera API
 
 

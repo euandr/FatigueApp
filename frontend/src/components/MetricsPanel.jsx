@@ -71,9 +71,7 @@ const MetricsPanel = ({
           className={`p-2 rounded-lg ${earStatus.bg} border border-slate-600/50 transition-all duration-300`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">
-              Olhos 
-            </span>
+            <span className="text-xs font-mono text-slate-400">Olhos</span>
             {/* <span className={`text-xs font-mono font-bold ${earStatus.color}`}>
               {earStatus.label}
             </span> */}
@@ -122,16 +120,17 @@ const MetricsPanel = ({
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono text-slate-400">Piscadas</span>
-            {isStreaming ? (
-              <CircleDot
-                className={`w-4 h-4 ${
-                  excessBlinks ? "text-yellow-500" : "text-slate-400"
-                }`}
-              />
-            ) : null
-            //  (
-            //   <span className="text-xs font-mono text-slate-400">Inativo</span>
-            // )
+            {
+              isStreaming ? (
+                <CircleDot
+                  className={`w-4 h-4 ${
+                    excessBlinks ? "text-yellow-500" : "text-slate-400"
+                  }`}
+                />
+              ) : null
+              //  (
+              //   <span className="text-xs font-mono text-slate-400">Inativo</span>
+              // )
             }
           </div>
           <div
@@ -152,16 +151,17 @@ const MetricsPanel = ({
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono text-slate-400">Bocejos</span>
-            {isStreaming ? (
-              <AlertTriangle
-                className={`w-4 h-4 ${
-                  yawns > 2 ? "text-red-500" : "text-orange-400"
-                }`}
-              />
-            ) : null
-            //  (
-            //   <span className="text-xs font-mono text-slate-400">Inativo</span>
-            // )
+            {
+              isStreaming ? (
+                <AlertTriangle
+                  className={`w-4 h-4 ${
+                    yawns > 2 ? "text-red-500" : "text-orange-400"
+                  }`}
+                />
+              ) : null
+              //  (
+              //   <span className="text-xs font-mono text-slate-400">Inativo</span>
+              // )
             }
           </div>
           <div
@@ -169,9 +169,11 @@ const MetricsPanel = ({
               yawns > 2 ? "text-red-500" : "text-orange-400"
             }`}
           >
-            {yawns}
+            {yawns ?? "-"}
           </div>
-          <p className="text-xs text-slate-500 mt-1">por minuto</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {yawns == null ? "Contagem indisponível" : "por minuto"}
+          </p>
         </div>
       </div>
 

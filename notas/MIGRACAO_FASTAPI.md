@@ -125,7 +125,7 @@ Todos abaixo exigem `Authorization: Bearer <access_token>` do Supabase:
 1. Conectar a `/ws`.
 2. Enviar em até 10 segundos `{ "type": "auth", "token": "JWT", "session_id": "uuid" }`. O token não vai na URL.
 3. Aguardar `{ "type": "ready", "session_id": "uuid" }`.
-4. Enviar `{ "frame": "JPEG em base64" }`. A resposta mantém os campos originais: `ear`, `mar`, `blinks`, `totalBlinks`, `yawnDetected`, `excessBlinks`, `fatigueAlert`, `frame` (e `eyesClosed` quando já retornado no protótipo). Mensagens de controle usam `type` e não substituem métricas no React.
+4. Enviar `{ "frame": "JPEG em base64" }`. A resposta contém os campos `ear`, `mar`, `blinks`, `totalBlinks`, `yawnDetected`, `excessBlinks`, `prolongedEyeClosure`, `frame` (e `eyesClosed` quando já retornado no protótipo). Mensagens de controle usam `type` e não substituem métricas no React.
 
 O frontend captura a aproximadamente 10 FPS, com apenas um frame pendente para evitar acúmulo. O token é revalidado durante conexões longas, a cada 30 segundos de frames; uma reconexão obtém o token atualizado do Supabase Auth.
 

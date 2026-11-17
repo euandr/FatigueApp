@@ -35,9 +35,9 @@ export default function ConfigCamModal({ onClose, mode, setAtualizarCameras, cam
         protocolo: protocolo,
         stream_url: url
       }
-      await patchCamera(cameraId, dadosAtualizados);
+      const resposta = await patchCamera(cameraId, dadosAtualizados);
       setAtualizarCameras?.((anterior) => !anterior);
-      onClose();
+      onClose(resposta.data);
     } catch (error) {
       console.error("Erro ao editar câmera:", error);
     }
@@ -54,7 +54,7 @@ export default function ConfigCamModal({ onClose, mode, setAtualizarCameras, cam
   }, [cameraId, mode])
   
   const [nome, setNome] = useState("");
-  const [protocolo, setProtocolo] = useState("http");
+  const [protocolo, setProtocolo] = useState("http/https");
   const [url, setUrl] = useState("");
   return (
     <div
@@ -97,7 +97,7 @@ export default function ConfigCamModal({ onClose, mode, setAtualizarCameras, cam
               className="w-full rounded-sm  bg-[#1E2635] border-[#243243] border-[1.8px] pr-32 pl-10 py-2 text-[12px] "
               onChange={(e) => setProtocolo(e.target.value)}
             >
-              <option value="http">HTTP/HTTPS</option>
+              <option value="http/https">HTTP/HTTPS</option>
             </select>
           </div>
 
@@ -118,7 +118,7 @@ export default function ConfigCamModal({ onClose, mode, setAtualizarCameras, cam
         </div>
         <hr className="border-[#243243] mt-8" />
         <div className="flex justify-end gap-4 px-6 p my-4">
-          <button onClick={onClose} className=" bg-[#1E2635] border-[#243243] border-[1.8px] rounded-sm px-4 py-1 hover:scale-105 transition-transform duration-200">
+          <button onClick={()=>{onClose()}} className=" bg-[#1E2635] border-[#243243] border-[1.8px] rounded-sm px-4 py-1 hover:scale-105 transition-transform duration-200">
             Cancelar
           </button>
           <button 
